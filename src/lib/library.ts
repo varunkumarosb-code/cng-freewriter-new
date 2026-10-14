@@ -84,7 +84,7 @@ function seedStories(): Story[] {
       [
         "This is your quiet place to draft — no ads, no nag screens, no algorithm. Just you, a blank page, and a word count that minds its own business until you ask for it.",
         "Start by pressing New Story, or open this note and delete it. As you type, the floating counter at the bottom tracks words, characters, and estimated reading time in real time. Everything auto-saves a beat after you stop typing, and Ctrl/Cmd+S saves instantly.",
-        "Your work lives in this browser by default, so the app works with zero setup. When you are ready to sync across devices, open Settings and point CnG Writer at any PocketBase server (default http://127.0.0.1:8090) with a collection named stories containing four fields: title (text), content (text), word_count (number), and user_id (text). Authenticate with an email/password or an auth token and your drafts follow you.",
+        "Your work lives in this browser by default, so the app works with zero setup. When you are ready to sync across devices, open Settings and point CnG Writer at any PocketBase server (default http://127.0.0.1:8090) with a collection named cng_stories containing four fields: title (text), content (text), word_count (number), and user_id (text). Authenticate with an email/password or an auth token and your drafts follow you.",
         "That is the whole feature set. The rest is writing.",
       ].join("\n\n"),
       55
