@@ -59,20 +59,20 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
     <main className="mx-auto w-full max-w-6xl px-5 pb-28">
       {/* Header */}
       <div className="pt-14">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-ember-400/90">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-ember-600 dark:text-ember-400/90">
           {formatLongDate(new Date().toISOString())}
         </p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-6">
-          <h1 className="font-serif text-[clamp(36px,5.5vw,58px)] font-medium leading-[1.02] tracking-[-0.01em] text-zinc-50">
-            The bookshelf<span className="text-ember-400">.</span>
+          <h1 className="font-serif text-[clamp(36px,5.5vw,58px)] font-medium leading-[1.02] tracking-[-0.01em] text-zinc-900 dark:text-zinc-50">
+            The bookshelf<span className="text-ember-500 dark:text-ember-400">.</span>
           </h1>
           <div className="relative">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-600" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search titles & text…"
-              className="h-10 w-full rounded-full border border-white/10 bg-white/[0.03] pl-9 pr-4 text-[13px] text-zinc-200 placeholder:text-zinc-600 focus:border-ember-400/40 focus:outline-none sm:w-60"
+              className="h-10 w-full rounded-full border border-zinc-200 bg-zinc-100/80 pl-9 pr-4 text-[13px] text-zinc-800 placeholder:text-zinc-400 focus:border-ember-400/50 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-200 dark:placeholder:text-zinc-600 sm:w-60"
             />
           </div>
         </div>
@@ -190,7 +190,7 @@ function StoryCard({ story, category, onOpen, delay }: StoryCardProps) {
         if (e.key === "Enter") onOpen();
       }}
       style={{ animationDelay: `${delay}ms` }}
-      className="group flex animate-rise cursor-pointer flex-col rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-ember-400/30 hover:bg-white/[0.035] hover:shadow-[0_24px_60px_-24px_rgba(229,177,104,0.18)]"
+      className="group flex animate-rise cursor-pointer flex-col rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-ember-400/50 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:shadow-none dark:hover:border-ember-400/30 dark:hover:bg-white/[0.035]"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500">
@@ -202,19 +202,19 @@ function StoryCard({ story, category, onOpen, delay }: StoryCardProps) {
         </span>
         <ArrowUpRight
           size={15}
-          className="text-ember-300 opacity-0 transition group-hover:opacity-100"
+          className="text-ember-600 opacity-0 transition group-hover:opacity-100 dark:text-ember-300"
         />
       </div>
 
-      <h2 className="mt-3 line-clamp-2 font-serif text-[22px] font-medium leading-snug text-zinc-100 transition group-hover:text-ember-100">
+      <h2 className="mt-3 line-clamp-2 font-serif text-[22px] font-medium leading-snug text-zinc-900 transition group-hover:text-ember-600 dark:text-zinc-100 dark:group-hover:text-ember-100">
         {story.title || "Untitled"}
       </h2>
 
-      <p className="mt-2 line-clamp-3 flex-1 font-serif text-[15px] leading-relaxed text-zinc-400/90">
+      <p className="mt-2 line-clamp-3 flex-1 font-serif text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400/90">
         {excerpt || "A blank page, waiting."}
       </p>
 
-      <div className="mt-5 flex items-center justify-between border-t border-white/[0.05] pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+      <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 dark:border-white/[0.05] dark:text-zinc-500">
         <span>{words.toLocaleString()} words</span>
         <span>{timeAgo(story.updatedAt)}</span>
       </div>
