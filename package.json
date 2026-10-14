@@ -1,5 +1,5 @@
 {
-  "name": "cng-writer",
+  "name": "react-vite-tailwind",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "clsx": "2.1.1",
-    "framer-motion": "^14.2.0",
-    "lucide-react": "^1.56.0",
+    "lucide-react": "^1.57.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "tailwind-merge": "3.4.0"

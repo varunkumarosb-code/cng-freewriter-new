@@ -1,114 +1,68 @@
-import { Moon, PenLine, Plus, Settings2, Sun } from "lucide-react";
-import type { ConnStatus } from "../lib/model";
+import { Download, Feather, Plus, Settings } from "lucide-react";
+import { useLibrary } from "../state/LibraryContext";
+import { ImportButton } from "./ImportButton";
 
-interface Props {
-  status: ConnStatus;
-  statusDetail: string;
-  authUser: string;
-  onNew: () => void;
+interface TopBarProps {
+  onNewStory: () => void;
   onOpenSettings: () => void;
-  theme: "dark" | "light";
-  onToggleTheme: () => void;
 }
 
-const STATUS_META: Record<
-  ConnStatus,
-  { dot: string; label: string; ring: string }
-> = {
-  local: {
-    dot: "bg-zinc-400",
-    label: "Local mode",
-    ring: "border-zinc-300/70 dark:border-white/10",
-  },
-  connecting: {
-    dot: "bg-amber-400 lw-pulse-dot",
-    label: "Connecting",
-    ring: "border-amber-500/40",
-  },
-  connected: {
-    dot: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]",
-    label: "PocketBase synced",
-    ring: "border-emerald-500/40",
-  },
-  error: {
-    dot: "bg-red-400",
-    label: "Offline",
-    ring: "border-red-500/40",
-  },
-};
+/**
+ * App chrome for the Bookshelf — wordmark, plus the Backup & Export
+ * actions: Export All Stories (JSON) and Import Backup (.json).
+ */
+export function TopBar({ onNewStory, onOpenSettings }: TopBarProps) {
+  const { exportAll } = useLibrary();
 
-export default function TopBar({
-  status,
-  statusDetail,
-  authUser,
-  onNew,
-  onOpenSettings,
-  theme,
-  onToggleTheme,
-}: Props) {
-  const meta = STATUS_META[status];
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-900/[0.07] bg-[#f6f3ee]/85 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#09090b]/80">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
-        {/* wordmark */}
-        <div className="flex items-center gap-2.5" title="CnG Writer">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-amber-300 to-amber-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_4px_12px_rgba(245,158,11,0.35)]">
-            <PenLine className="h-4 w-4 text-zinc-950" strokeWidth={2.4} />
+    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-night-950/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5">
+        {/* Wordmark */}
+        <div className="flex items-baseline gap-2.5">
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-ember-400/25 bg-ember-400/10 text-ember-300">
+            <Feather size={15} />
           </span>
-          <span className="font-display text-[17px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            CnG Writer
+          <span className="font-serif text-[22px] font-semibold italic leading-none text-zinc-100">
+            CnG
           </span>
-          <span className="hidden rounded-md border border-zinc-900/10 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-zinc-500 sm:inline-block dark:border-white/10 dark:text-zinc-500">
-            Ad-Free
+          <span className="hidden font-mono text-[10px] font-medium uppercase tracking-[0.32em] text-zinc-500 sm:inline">
+            Writer
+          </span>
+          <span className="ml-1 hidden border-l border-white/10 pl-3 font-mono text-[10px] text-zinc-600 md:inline">
+            distraction-free · local-first
           </span>
         </div>
 
-        <div className="flex-1" />
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <ImportButton />
+          <button
+            onClick={exportAll}
+            title="Download every story, category & setting as one .json"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[13px] font-medium text-zinc-400 transition hover:border-ember-400/40 hover:text-ember-300"
+          >
+            <Download size={15} />
+            <span className="hidden sm:inline">Export all</span>
+          </button>
 
-        {/* connection status */}
-        <button
-          onClick={onOpenSettings}
-          title={`${statusDetail}${authUser ? ` — ${authUser}` : ""}. Click to configure PocketBase.`}
-          className={`group flex items-center gap-2 rounded-full border bg-white/60 px-3 py-1.5 transition hover:bg-white dark:bg-white/[0.04] dark:hover:bg-white/[0.08] ${meta.ring}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-          <span className="hidden font-mono text-[11px] text-zinc-500 group-hover:text-zinc-700 md:inline dark:text-zinc-400 dark:group-hover:text-zinc-200">
-            {meta.label}
-          </span>
-          {status === "connected" && authUser && (
-            <span className="hidden max-w-32 truncate font-mono text-[11px] text-zinc-400 lg:inline dark:text-zinc-500">
-              {authUser}
-            </span>
-          )}
-        </button>
+          <span className="mx-1 h-4 w-px bg-white/10" />
 
-        <button
-          className="lw-btn-icon"
-          onClick={onToggleTheme}
-          title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-        >
-          {theme === "dark" ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
-        </button>
-
-        <button
-          className="lw-btn-icon"
-          onClick={onOpenSettings}
-          title="PocketBase & data settings"
-        >
-          <Settings2 className="h-4 w-4" />
-        </button>
-
-        <span className="hidden h-6 w-px bg-zinc-900/10 sm:block dark:bg-white/10" />
-
-        <button onClick={onNew} className="lw-btn-primary" title="New story (N)">
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          <span className="hidden sm:inline">New Story</span>
-          <span className="sm:hidden">New</span>
-        </button>
+          <button
+            onClick={onNewStory}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-ember-400 px-3 pr-3.5 text-[13px] font-bold text-night-950 transition hover:bg-ember-300 active:scale-[0.97]"
+          >
+            <Plus size={15} strokeWidth={2.6} />
+            <span className="hidden sm:inline">New story</span>
+          </button>
+          <button
+            onClick={onOpenSettings}
+            aria-label="Open settings"
+            title="Settings — backup, restore & preferences"
+            className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-zinc-400 transition hover:border-white/20 hover:text-zinc-100"
+          >
+            <Settings size={15} />
+          </button>
+        </div>
       </div>
     </header>
   );

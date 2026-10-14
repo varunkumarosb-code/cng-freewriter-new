@@ -1,374 +1,223 @@
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowUpRight,
-  BookOpen,
-  ChevronDown,
-  CloudCheck,
-  CloudUpload,
-  HardDrive,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  Trash2,
-} from "lucide-react";
-import {
-  ConnStatus,
-  GenreKey,
-  Story,
-  countChars,
-  displayTitle,
-  fmtNum,
-  genreByKey,
-  readingMinutes,
-  rel,
-} from "../lib/model";
+import { ArrowUpRight, BookOpen, Plus, Search } from "lucide-react";
+import type { Story } from "../lib/types";
+import { useLibrary } from "../state/LibraryContext";
+import { stripMarkdown } from "../lib/backup";
+import { countWords, formatLongDate, plural, timeAgo } from "../lib/format";
 
-interface Props {
-  stories: Story[];
-  status: ConnStatus;
-  onOpen: (story: Story) => void;
-  onNew: () => void;
-  onDelete: (id: string) => void;
-  onOpenSettings: () => void;
+interface BookshelfProps {
+  onOpenStory: (id: string) => void;
+  onNewStory: () => void;
 }
 
-type SortKey = "updated" | "title" | "words";
-
-export default function Bookshelf({
-  stories,
-  status,
-  onOpen,
-  onNew,
-  onDelete,
-  onOpenSettings,
-}: Props) {
+export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
+  const { stories, categories, restoreSamples } = useLibrary();
   const [query, setQuery] = useState("");
-  const [genre, setGenre] = useState<"all" | GenreKey>("all");
-  const [sort, setSort] = useState<SortKey>("updated");
+  const [shelf, setShelf] = useState<string>("all");
 
-  const totals = useMemo(() => {
-    const words = stories.reduce((n, s) => n + s.word_count, 0);
-    return { words, minutes: readingMinutes(words) };
-  }, [stories]);
+  const categoryById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories],
+  );
 
-  const presentGenres = useMemo(
-    () => [...new Set(stories.map((s) => s.genre))],
-    [stories]
+  const totalWords = useMemo(
+    () => stories.reduce((n, s) => n + countWords(s.content), 0),
+    [stories],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = stories.filter(
-      (s) =>
-        (genre === "all" || s.genre === genre) &&
-        (!q ||
-          s.title.toLowerCase().includes(q) ||
-          s.content.toLowerCase().includes(q))
-    );
-    if (sort === "title") {
-      list = [...list].sort((a, b) =>
-        displayTitle(a).localeCompare(displayTitle(b))
-      );
-    } else if (sort === "words") {
-      list = [...list].sort((a, b) => b.word_count - a.word_count);
-    } else {
-      list = [...list].sort(
-        (a, b) => +new Date(b.updated) - +new Date(a.updated)
-      );
-    }
-    return list;
-  }, [stories, query, genre, sort]);
+    return stories
+      .filter((s) => {
+        if (shelf === "all") return true;
+        if (shelf === "unshelved") return s.categoryId === null;
+        return s.categoryId === shelf;
+      })
+      .filter((s) =>
+        q ? (s.title + " " + s.content).toLowerCase().includes(q) : true,
+      )
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  }, [stories, query, shelf]);
+
+  const chips = useMemo(() => {
+    const countFor = (id: string) =>
+      id === "all"
+        ? stories.length
+        : id === "unshelved"
+          ? stories.filter((s) => s.categoryId === null).length
+          : stories.filter((s) => s.categoryId === id).length;
+    return [
+      { id: "all", name: "All", color: "#e5b168", count: countFor("all") },
+      ...categories.map((c) => ({ ...c, count: countFor(c.id) })),
+      ...(countFor("unshelved") > 0
+        ? [{ id: "unshelved", name: "Unshelved", color: "#71717a", count: countFor("unshelved") }]
+        : []),
+    ];
+  }, [stories, categories]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-28 sm:px-6">
-      {/* ---------- hero ---------- */}
-      <section className="pt-10 pb-8 sm:pt-14">
-        <p className="lw-kicker mb-3 flex items-center gap-2">
-          <span className="h-1 w-1 rounded-full bg-amber-500" />
-          Library · Local-first
+    <main className="mx-auto w-full max-w-6xl px-5 pb-28">
+      {/* Header */}
+      <div className="pt-14">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-ember-400/90">
+          {formatLongDate(new Date().toISOString())}
         </p>
-        <h1 className="font-display text-4xl font-medium tracking-tight text-zinc-900 sm:text-[44px] sm:leading-[1.05] dark:text-zinc-50">
-          Your stories,{" "}
-          <em className="font-light text-amber-600 dark:text-amber-300">
-            uninterrupted.
-          </em>
-        </h1>
-        <p className="mt-4 font-mono text-[11px] tracking-[0.14em] text-zinc-500 uppercase dark:text-zinc-500">
-          {stories.length} {stories.length === 1 ? "story" : "stories"}
-          <span className="mx-2 text-zinc-300 dark:text-zinc-700">/</span>
-          {fmtNum(totals.words)} words
-          <span className="mx-2 text-zinc-300 dark:text-zinc-700">/</span>
-          {fmtNum(totals.minutes)} min of reading
-        </p>
-      </section>
-
-      {/* ---------- toolbar ---------- */}
-      <section className="mb-7 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-44 flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400 dark:text-zinc-600" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search titles & drafts…"
-            className="lw-input pl-9"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => setGenre("all")}
-            className={`lw-chip ${genre === "all" ? "lw-chip-active" : ""}`}
-          >
-            All
-          </button>
-          {presentGenres.map((g) => (
-            <button
-              key={g}
-              onClick={() => setGenre(g)}
-              className={`lw-chip ${genre === g ? "lw-chip-active" : ""}`}
-            >
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: `hsl(${genreByKey(g).hue} 80% 60%)` }}
-              />
-              {genreByKey(g).label}
-            </button>
-          ))}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600" />
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-6">
+          <h1 className="font-serif text-[clamp(36px,5.5vw,58px)] font-medium leading-[1.02] tracking-[-0.01em] text-zinc-50">
+            The bookshelf<span className="text-ember-400">.</span>
+          </h1>
           <div className="relative">
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="lw-select py-1.5 pl-3 text-[12.5px]"
-            >
-              <option value="updated">Recently edited</option>
-              <option value="title">Title A–Z</option>
-              <option value="words">Word count</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search titles & text…"
+              className="h-10 w-full rounded-full border border-white/10 bg-white/[0.03] pl-9 pr-4 text-[13px] text-zinc-200 placeholder:text-zinc-600 focus:border-ember-400/40 focus:outline-none sm:w-60"
+            />
           </div>
         </div>
-      </section>
-
-      {/* ---------- grid ---------- */}
-      {stories.length === 0 ? (
-        <EmptyState onNew={onNew} />
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 py-20 text-center dark:border-white/10">
-          <p className="font-display text-xl text-zinc-400 dark:text-zinc-500">
-            Nothing matches that search.
-          </p>
-          <button
-            onClick={() => {
-              setQuery("");
-              setGenre("all");
-            }}
-            className="lw-btn-ghost mt-4"
-          >
-            Clear filters
-          </button>
-        </div>
-      ) : (
-        <motion.section
-          layout
-          className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          <AnimatePresence mode="popLayout">
-            {filtered.map((s, i) => (
-              <StoryCard
-                key={s.id}
-                story={s}
-                index={i}
-                onOpen={() => onOpen(s)}
-                onDelete={() => onDelete(s.id)}
-              />
-            ))}
-          </AnimatePresence>
-
-          {status !== "connected" && (
-            <SyncSetupCard onOpenSettings={onOpenSettings} />
-          )}
-        </motion.section>
-      )}
-
-      {stories.length > 0 && (
-        <p className="mt-14 text-center font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase dark:text-zinc-600">
-          Autosaves locally · PocketBase sync optional · zero ads, forever
+        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+          {stories.length} {plural(stories.length, "story", "stories")} · {totalWords.toLocaleString()} words ·{" "}
+          {categories.length} {plural(categories.length, "shelf", "shelves")}
         </p>
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------ cards ------------------------------ */
-
-function StoryCard({
-  story,
-  index,
-  onOpen,
-  onDelete,
-}: {
-  story: Story;
-  index: number;
-  onOpen: () => void;
-  onDelete: () => void;
-}) {
-  const [armDelete, setArmDelete] = useState(false);
-  const g = genreByKey(story.genre);
-  const title = displayTitle(story);
-  const kicker =
-    story.content.trim().split("\n").filter(Boolean)[0]?.slice(0, 90) ?? "";
-
-  const requestDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (armDelete) {
-      onDelete();
-    } else {
-      setArmDelete(true);
-      setTimeout(() => setArmDelete(false), 2600);
-    }
-  };
-
-  const SyncIcon = story.pending
-    ? CloudUpload
-    : story.origin === "cloud"
-      ? CloudCheck
-      : HardDrive;
-  const syncTint = story.pending
-    ? "text-amber-300 bg-amber-400/15"
-    : story.origin === "cloud"
-      ? "text-emerald-300 bg-emerald-400/15"
-      : "text-zinc-300 bg-black/35";
-  const syncLabel = story.pending
-    ? "Waiting to sync"
-    : story.origin === "cloud"
-      ? "Synced to PocketBase"
-      : "Stored locally";
-
-  return (
-    <motion.article
-      layout
-      initial={{ opacity: 0, y: 14, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94 }}
-      transition={{ type: "spring", stiffness: 320, damping: 30, delay: index * 0.04 }}
-      onClick={onOpen}
-      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-zinc-900/[0.08] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-xl hover:shadow-amber-500/[0.07] dark:border-white/10 dark:bg-[#101013] dark:shadow-none dark:hover:shadow-2xl dark:hover:shadow-black/60"
-    >
-      {/* cover */}
-      <div
-        className="relative h-32 overflow-hidden border-b border-zinc-900/[0.06] dark:border-white/[0.06]"
-        style={{
-          background: `linear-gradient(135deg, hsl(${g.hue} 62% 52% / 0.16), hsl(${g.hue + 24} 70% 42% / 0.05))`,
-        }}
-      >
-        <span className="lw-mono-badge absolute top-3 left-3 uppercase">
-          {g.label}
-        </span>
-        <span
-          className="font-display absolute -right-2 -bottom-5 text-[104px] leading-none font-light italic opacity-60 select-none"
-          style={{ color: `hsl(${g.hue} 75% 62%)` }}
-        >
-          {title.charAt(0).toUpperCase()}
-        </span>
-        <span className="lw-mono-badge absolute bottom-3 left-3 gap-1.5">
-          {fmtNum(story.word_count)} words
-        </span>
-        <span
-          title={syncLabel}
-          className={`absolute top-3 right-3 grid h-6 w-6 place-items-center rounded-md backdrop-blur-sm ${syncTint}`}
-        >
-          <SyncIcon className="h-3.5 w-3.5" />
-        </span>
-        <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/15 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       </div>
 
-      {/* body */}
-      <div className="relative p-4 pt-3.5">
-        <h3 className="font-display lw-clamp-2 min-h-11 text-[16.5px] leading-snug font-medium text-zinc-900 transition-colors group-hover:text-amber-700 dark:text-zinc-100 dark:group-hover:text-amber-300">
-          {title}
-        </h3>
-        {kicker && (
-          <p className="lw-clamp-2 mt-1.5 text-[12.5px] leading-relaxed text-zinc-500 dark:text-zinc-500">
-            {kicker}
-          </p>
-        )}
-
-        <div className="mt-3.5 flex items-center justify-between border-t border-zinc-900/[0.06] pt-3 dark:border-white/[0.07]">
-          <span className="font-mono text-[10.5px] tracking-wide text-zinc-400 dark:text-zinc-500">
-            {rel(story.updated)}
-            <span className="mx-1.5 text-zinc-300 dark:text-zinc-700">·</span>
-            {fmtNum(countChars(story.content))} chars
-          </span>
-          <span className="flex items-center gap-1.5">
+      {/* Shelf chips */}
+      <div className="no-scrollbar mt-8 flex gap-2 overflow-x-auto pb-1">
+        {chips.map((chip) => {
+          const active = shelf === chip.id;
+          return (
             <button
-              onClick={requestDelete}
-              title={armDelete ? "Click again to confirm deletion" : "Delete story"}
-              className={`grid h-7 w-7 place-items-center rounded-lg border transition sm:opacity-0 sm:group-hover:opacity-100 ${
-                armDelete
-                  ? "border-red-500/60 bg-red-500/15 text-red-500 opacity-100"
-                  : "border-transparent text-zinc-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-500 dark:text-zinc-600"
+              key={chip.id}
+              onClick={() => setShelf(chip.id)}
+              className={`flex h-8 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[12px] font-medium transition ${
+                active
+                  ? "border-ember-400/50 bg-ember-400/10 text-ember-200"
+                  : "border-white/[0.08] text-zinc-400 hover:border-white/20 hover:text-zinc-200"
               }`}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: chip.color }} />
+              {chip.name}
+              <span className={`font-mono text-[10px] ${active ? "text-ember-300/70" : "text-zinc-600"}`}>
+                {chip.count}
+              </span>
             </button>
-            <span className="grid h-7 w-7 place-items-center rounded-lg text-zinc-300 transition group-hover:text-amber-500 sm:opacity-0 sm:group-hover:opacity-100 dark:text-zinc-600 dark:group-hover:text-amber-400">
-              <ArrowUpRight className="h-4 w-4" />
-            </span>
-          </span>
-        </div>
+          );
+        })}
       </div>
-    </motion.article>
+
+      {/* Grid */}
+      {stories.length === 0 ? (
+        <div className="mt-16 flex flex-col items-center rounded-2xl border border-dashed border-white/10 px-6 py-20 text-center">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl border border-ember-400/25 bg-ember-400/10 text-ember-300">
+            <BookOpen size={20} />
+          </span>
+          <h2 className="mt-5 font-serif text-2xl text-zinc-100">The shelf is empty</h2>
+          <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-zinc-500">
+            Start your first story, restore the samples, or import a{" "}
+            <span className="font-mono text-zinc-400">.json</span> backup from the top bar.
+          </p>
+          <div className="mt-6 flex gap-2">
+            <button
+              onClick={onNewStory}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-ember-400 px-4 text-[13px] font-bold text-night-950 transition hover:bg-ember-300"
+            >
+              <Plus size={15} strokeWidth={2.6} /> Start writing
+            </button>
+            <button
+              onClick={restoreSamples}
+              className="inline-flex h-9 items-center rounded-lg border border-white/10 px-4 text-[13px] font-medium text-zinc-300 transition hover:border-white/20"
+            >
+              Restore samples
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((story, i) => (
+            <StoryCard
+              key={story.id}
+              story={story}
+              category={story.categoryId ? categoryById.get(story.categoryId) : undefined}
+              onOpen={() => onOpenStory(story.id)}
+              delay={Math.min(i, 9) * 45}
+            />
+          ))}
+
+          {/* New story tile */}
+          <button
+            onClick={onNewStory}
+            className="group flex min-h-[230px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 text-zinc-600 transition hover:border-ember-400/40 hover:text-ember-300"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-full border border-current">
+              <Plus size={18} />
+            </span>
+            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.28em]">
+              New story
+            </span>
+          </button>
+        </div>
+      )}
+
+      {stories.length > 0 && filtered.length === 0 && (
+        <p className="mt-16 text-center font-serif text-xl italic text-zinc-500">
+          Nothing on this shelf matches “{query}”.
+        </p>
+      )}
+    </main>
   );
 }
 
-function SyncSetupCard({ onOpenSettings }: { onOpenSettings: () => void }) {
+/* ------------------------------------------------------------------ */
+
+interface StoryCardProps {
+  story: Story;
+  category?: { name: string; color: string };
+  onOpen: () => void;
+  delay: number;
+}
+
+function StoryCard({ story, category, onOpen, delay }: StoryCardProps) {
+  const words = countWords(story.content);
+  const excerpt = stripMarkdown(story.content).replace(/\n+/g, " ").slice(0, 220);
+
   return (
-    <motion.button
-      layout
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      onClick={onOpenSettings}
-      className="group flex min-h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-300 p-6 text-center transition hover:border-amber-500/60 hover:bg-amber-500/[0.04] dark:border-white/12 dark:hover:border-amber-400/50 dark:hover:bg-amber-400/[0.04]"
+    <article
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen();
+      }}
+      style={{ animationDelay: `${delay}ms` }}
+      className="group flex animate-rise cursor-pointer flex-col rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-ember-400/30 hover:bg-white/[0.035] hover:shadow-[0_24px_60px_-24px_rgba(229,177,104,0.18)]"
     >
-      <span className="grid h-11 w-11 place-items-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-400 transition group-hover:border-amber-400/50 group-hover:text-amber-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-500 dark:group-hover:text-amber-300">
-        <CloudUpload className="h-5 w-5" />
-      </span>
-      <p className="font-display text-lg text-zinc-700 dark:text-zinc-200">
-        Add PocketBase sync
-      </p>
-      <p className="max-w-60 text-[12.5px] leading-relaxed text-zinc-500">
-        Drafts already save to this browser. Point the app at your server to
-        carry them everywhere.
-      </p>
-      <span className="mt-1 font-mono text-[10px] tracking-[0.18em] text-amber-600 uppercase dark:text-amber-400">
-        Set up sync →
-      </span>
-    </motion.button>
-  );
-}
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: category?.color ?? "#71717a" }}
+          />
+          {category?.name ?? "Unshelved"}
+        </span>
+        <ArrowUpRight
+          size={15}
+          className="text-ember-300 opacity-0 transition group-hover:opacity-100"
+        />
+      </div>
 
-function EmptyState({ onNew }: { onNew: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-zinc-300 py-24 text-center dark:border-white/10">
-      <span className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 shadow-[0_8px_30px_rgba(245,158,11,0.35)]">
-        <BookOpen className="h-6 w-6 text-zinc-950" />
-      </span>
-      <h2 className="font-display text-2xl font-medium text-zinc-900 dark:text-zinc-100">
-        The shelf is empty — a dangerous place for a writer.
+      <h2 className="mt-3 line-clamp-2 font-serif text-[22px] font-medium leading-snug text-zinc-100 transition group-hover:text-ember-100">
+        {story.title || "Untitled"}
       </h2>
-      <p className="max-w-sm text-sm leading-relaxed text-zinc-500">
-        Open the first page. It can be a novel, a field note, or a single
-        sentence that refuses to leave you alone.
+
+      <p className="mt-2 line-clamp-3 flex-1 font-serif text-[15px] leading-relaxed text-zinc-400/90">
+        {excerpt || "A blank page, waiting."}
       </p>
-      <button onClick={onNew} className="lw-btn-primary mt-2 px-5 py-2.5">
-        <Plus className="h-4 w-4" strokeWidth={2.5} />
-        Start your first story
-      </button>
-    </div>
+
+      <div className="mt-5 flex items-center justify-between border-t border-white/[0.05] pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+        <span>{words.toLocaleString()} words</span>
+        <span>{timeAgo(story.updatedAt)}</span>
+      </div>
+    </article>
   );
 }
