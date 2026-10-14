@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="CnG Writer (Ad-Free) — a clean, distraction-free writing app with optional PocketBase sync." />
+    <meta name="color-scheme" content="dark light" />
+    <title>CnG Writer (Ad-Free)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f59e0b'/%3E%3Cpath d='M22 42 L44 20' stroke='%231c1917' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M19 45 l6 -1 -5 -5 z' fill='%231c1917'/%3E%3C/svg%3E" />
+    <script>
+      // Apply saved theme before first paint (default: dark)
+      try {
+        var t = localStorage.getItem("cngwriter:theme") || "dark";
+        document.documentElement.classList.toggle("dark", t !== "light");
+      } catch (e) { /* stay dark */ }
+    </script>
+    <!-- PocketBase JavaScript SDK via CDN (graceful localStorage fallback if it fails to load) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/pocketbase@0.22.1/dist/pocketbase.umd.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
