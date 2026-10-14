@@ -169,21 +169,50 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             </button>
           </div>
 
-          {/* Pen name */}
-          <div className="space-y-2">
-            <label
-              htmlFor="pen-name"
-              className="block font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-600"
-            >
-              Pen name
-            </label>
-            <input
-              id="pen-name"
-              value={settings.writerName}
-              onChange={(e) => updateSettings({ writerName: e.target.value })}
-              placeholder="Writer"
-              className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[13.5px] text-zinc-100 placeholder:text-zinc-600 focus:border-ember-400/50 focus:outline-none"
-            />
+          {/* Pen name & Theme Toggle */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="pen-name"
+                className="block font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500"
+              >
+                Pen name
+              </label>
+              <input
+                id="pen-name"
+                value={settings.writerName}
+                onChange={(e) => updateSettings({ writerName: e.target.value })}
+                placeholder="Writer"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[12.5px] text-zinc-100 placeholder:text-zinc-600 focus:border-ember-400/50 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+                Appearance
+              </label>
+              <div className="flex h-9 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.documentElement.classList.add("dark");
+                    localStorage.setItem("cngwriter:theme", "dark");
+                  }}
+                  className="flex-1 rounded-md text-[11.5px] font-medium text-zinc-300 transition hover:bg-white/10"
+                >
+                  Dark
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.documentElement.classList.remove("dark");
+                    localStorage.setItem("cngwriter:theme", "light");
+                  }}
+                  className="flex-1 rounded-md text-[11.5px] font-medium text-zinc-300 transition hover:bg-white/10"
+                >
+                  Light
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="h-px bg-white/[0.06]" />

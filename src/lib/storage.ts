@@ -154,15 +154,26 @@ export function syncToPocketBase(stories: Story[]): void {
       };
 
       try {
+        // Ensure payload NEVER contains custom string id for create
+        const cleanPayload = {
+          title: story.title || "Untitled",
+          content: story.content || "",
+          word_count: wordCount,
+          user_id: userId,
+        };
+
         if (story.remoteId) {
-          await pb.collection("cng_stories").update(story.remoteId, payload);
+          await pb.collection("cng_stories").update(story.remoteId, cleanPayload);
         } else {
-          // Let PocketBase auto-generate clean 15-char ID
-          const created = await pb.collection("cng_stories").create(payload);
+          // PocketBase auto-generates clean 15-char ID
+          const created = await pb.collection("cng_stories").create(cleanPayload);
           story.remoteId = created.id;
+          try {
+            localStorage.setItem(KEYS.stories, JSON.stringify(stories));
+          } catch {}
         }
-      } catch (err) {
-        console.error("Failed syncing story:", story.id, err);
+      } catch (err: any) {
+        console.error("Failed syncing story:", story.id, err?.data || err);
       }
     }
   }, 2000);
