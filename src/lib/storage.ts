@@ -120,9 +120,10 @@ export async function fetchRemoteStories(): Promise<Story[] | null> {
 
     return records.map((r) => ({
       id: r.id,
+      remoteId: r.id,
       title: r.title || "Untitled",
       content: r.content || "",
-      categoryId: r.category || null,
+      categoryId: null,
       createdAt: r.created || new Date().toISOString(),
       updatedAt: r.updated || new Date().toISOString(),
     }));
@@ -143,19 +144,23 @@ export function syncToPocketBase(stories: Story[]): void {
     if (!userId) return;
 
     for (const story of stories) {
-      const payload = {
-        title: story.title,
-        content: story.content,
-        word_count: story.content.trim().split(/\s+/).filter(Boolean).length,
-        category: story.categoryId,
+      const wordCount = story.content.trim().split(/\s+/).filter(Boolean).length;
+
+      const payload: Record<string, any> = {
+        title: story.title || "Untitled",
+        content: story.content || "",
+        word_count: wordCount,
         user_id: userId,
       };
 
       try {
-        // Try updating existing record, if fails try creating
-        await pb.collection("cng_stories").update(story.id, payload).catch(async () => {
-          await pb.collection("cng_stories").create({ id: story.id, ...payload });
-        });
+        if (story.remoteId) {
+          await pb.collection("cng_stories").update(story.remoteId, payload);
+        } else {
+          // Let PocketBase auto-generate clean 15-char ID
+          const created = await pb.collection("cng_stories").create(payload);
+          story.remoteId = created.id;
+        }
       } catch (err) {
         console.error("Failed syncing story:", story.id, err);
       }

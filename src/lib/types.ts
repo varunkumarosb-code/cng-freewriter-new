@@ -15,6 +15,7 @@ export interface Story {
   categoryId: string | null;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
+  remoteId?: string; // PocketBase 15-char record ID
 }
 
 export interface AppSettings {
