@@ -84,6 +84,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [dismissToast],
   );
 
+  /* --- initial cloud sync on startup ------------------------------ */
+  useEffect(() => {
+    import("../lib/storage").then(({ fetchRemoteStories }) => {
+      fetchRemoteStories().then((remote) => {
+        if (remote && remote.length > 0) {
+          setStories((prev) => {
+            const map = new Map(prev.map((s) => [s.id, s]));
+            for (const r of remote) {
+              if (!map.has(r.id)) map.set(r.id, r);
+            }
+            return Array.from(map.values());
+          });
+        }
+      });
+    });
+  }, []);
+
   /* --- persistence (debounced, skip first render) ----------------- */
   const firstRun = useRef(true);
   useEffect(() => {

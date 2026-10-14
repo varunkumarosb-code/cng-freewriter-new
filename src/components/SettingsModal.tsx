@@ -1,11 +1,138 @@
-import { useEffect } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Cloud, CloudOff, Loader2, RefreshCw, X } from "lucide-react";
 import { useLibrary } from "../state/LibraryContext";
 import { BackupPanel } from "./BackupPanel";
+import { pb, updatePbUrl } from "../lib/pocketbase";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+}
+
+function PocketBasePanel() {
+  const { notify } = useLibrary();
+  const [url, setUrl] = useState(pb.baseUrl || "https://salaryzapp-pb.onrender.com");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [authedUser, setAuthedUser] = useState<string | null>(
+    pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null
+  );
+
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      notify("error", "Credentials required", "Please enter email and password.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      updatePbUrl(url);
+      await pb.collection("users").authWithPassword(email.trim(), password);
+      setAuthedUser(pb.authStore.model?.email || email);
+      notify("success", "Connected to PocketBase", `Logged in as ${email}`);
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err: any) {
+      console.error(err);
+      const msg =
+        err?.status === 0
+          ? "Server cold-starting (~50s on Render free). Please wait a moment and click Save again."
+          : err?.message || "Invalid credentials or collection rules issue.";
+      notify("error", "Connection failed", msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    pb.authStore.clear();
+    setAuthedUser(null);
+    notify("info", "Disconnected", "App is now running in local-only mode.");
+  };
+
+  return (
+    <section className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-zinc-100">
+          <Cloud size={16} className="text-ember-400" />
+          PocketBase Sync
+        </h3>
+        {authedUser ? (
+          <span className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
+            <CheckCircle2 size={12} /> Connected
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
+            <CloudOff size={12} /> Local mode
+          </span>
+        )}
+      </div>
+
+      {authedUser ? (
+        <div className="flex items-center justify-between pt-1">
+          <p className="text-[12px] text-zinc-400">
+            User: <strong className="text-zinc-200">{authedUser}</strong>
+          </p>
+          <button
+            onClick={handleDisconnect}
+            className="h-8 rounded-lg border border-white/10 px-3 text-[11.5px] font-medium text-zinc-400 transition hover:border-rose-400/40 hover:text-rose-300"
+          >
+            Disconnect
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleConnect} className="space-y-3 pt-1">
+          <div>
+            <label className="block font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+              Server URL
+            </label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://salaryzapp-pb.onrender.com"
+              className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[12.5px] text-zinc-200 placeholder:text-zinc-600 focus:border-ember-400/40 focus:outline-none"
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <label className="block font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="varunkumarosb@gmail.com"
+                className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[12.5px] text-zinc-200 placeholder:text-zinc-600 focus:border-ember-400/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-zinc-500">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1 h-9 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[12.5px] text-zinc-200 placeholder:text-zinc-600 focus:border-ember-400/40 focus:outline-none"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-ember-400 text-[12.5px] font-bold text-night-950 transition hover:bg-ember-300 disabled:opacity-50"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            {loading ? "Connecting (Render waking up)..." : "Save & Connect"}
+          </button>
+        </form>
+      )}
+    </section>
+  );
 }
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
@@ -58,6 +185,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[13.5px] text-zinc-100 placeholder:text-zinc-600 focus:border-ember-400/50 focus:outline-none"
             />
           </div>
+
+          <div className="h-px bg-white/[0.06]" />
+
+          {/* Cloud Sync */}
+          <PocketBasePanel />
 
           <div className="h-px bg-white/[0.06]" />
 

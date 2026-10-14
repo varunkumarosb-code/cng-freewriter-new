@@ -122,9 +122,9 @@ export async function fetchRemoteStories(): Promise<Story[] | null> {
       id: r.id,
       title: r.title || "Untitled",
       content: r.content || "",
-      categoryId: r.category || "cat-novel",
-      createdAt: r.created,
-      updatedAt: r.updated,
+      categoryId: r.category || null,
+      createdAt: r.created || new Date().toISOString(),
+      updatedAt: r.updated || new Date().toISOString(),
     }));
   } catch (err) {
     console.error("PocketBase fetch error:", err);

@@ -1,7 +1,13 @@
 import PocketBase from 'pocketbase';
 
-// Apne Render instance ka URL yahan check/update kar lena
-export const pb = new PocketBase('https://salaryzapp-pb.onrender.com');
+const SAVED_URL = localStorage.getItem("cng:pb_url") || 'https://salaryzapp-pb.onrender.com';
 
-// Auto-cancellation disable karna sensible rehta hai debounced autosave ke liye
+export const pb = new PocketBase(SAVED_URL);
+
 pb.autoCancellation(false);
+
+export function updatePbUrl(url: string) {
+  const clean = url.trim().replace(/\/+$/, "");
+  localStorage.setItem("cng:pb_url", clean);
+  pb.baseUrl = clean;
+}

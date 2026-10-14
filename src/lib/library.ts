@@ -214,7 +214,7 @@ class LibraryService {
       }
 
       // Prove collection access — throws a clean error if rules block us.
-      const records: any[] = await pb.collection("stories").getFullList({
+      const records: any[] = await pb.collection("cng_stories").getFullList({
         sort: "-updated",
         autoCancel: false,
       });
@@ -383,7 +383,7 @@ class LibraryService {
    * with the minimal payload so saving never breaks.
    */
   private async remoteWrite(story: Story): Promise<any> {
-    const col = this.pb.collection("stories");
+    const col = this.pb.collection("cng_stories");
     const full = {
       title: story.title,
       content: story.content,
@@ -413,7 +413,7 @@ class LibraryService {
     this.notify();
     if (story?.remoteId && this.pb && this.status === "connected") {
       try {
-        await this.pb.collection("stories").delete(story.remoteId);
+        await this.pb.collection("cng_stories").delete(story.remoteId);
       } catch {
         /* record may already be gone server-side */
       }
