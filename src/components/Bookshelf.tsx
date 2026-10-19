@@ -1,253 +1,165 @@
-import { useMemo, useState, useCallback } from "react";
-import { ArrowUpRight, BookOpen, Plus, Search } from "lucide-react";
-import type { Story } from "../lib/types";
-import { useLibrary } from "../state/LibraryContext";
-import { stripMarkdown } from "../lib/backup";
-import { countWords, formatLongDate, plural, timeAgo } from "../lib/format";
+import { useEffect, useMemo, useState } from "react";
+import { Sparkles, Search, Filter, Trash2 } from "lucide-react";
+import type { Category, Story } from "../types";
+import { countWords, formatDate, timeAgo } from "../lib/format";
+import { getEffectiveShelfName, getShelfCount, isDeletableCategory } from "../lib/storage";
 
 interface BookshelfProps {
-  onOpenStory?: (id: string) => void;
-  onNewStory?: () => void;
+  stories: Story[];
+  categories: Category[];
+  onSelectStory: (id: string) => void;
+  onCreateStory: () => void;
+  onDeleteStory: (id: string) => void;
 }
 
-export function Bookshelf({ onOpenStory = () => {}, onNewStory = () => {} }: BookshelfProps) {
-  const library = useLibrary();
-  const stories = library?.stories ?? [];
-  const categories = library?.categories ?? [];
-  const restoreSamples = typeof library?.restoreSamples === 'function' ? library.restoreSamples : (() => {});
+export function Bookshelf({ stories, categories, onSelectStory, onCreateStory, onDeleteStory }: BookshelfProps) {
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState<string>("all");
 
-  const [query, setQuery] = useState("");
-  const [shelf, setShelf] = useState<string>("all");
+  useEffect(() => {
+    document.documentElement.style.scrollBehavior = "";
+    return () => {};
+  }, []);
 
-  const safeOnOpenStory = useCallback((id: string) => {
-    try { if (typeof onOpenStory === 'function') onOpenStory(id); } catch {}
-  }, [onOpenStory]);
-
-  const safeOnNewStory = useCallback(() => {
-    try { if (typeof onNewStory === 'function') onNewStory(); } catch {}
-  }, [onNewStory]);
-
-  const safeRestoreSamples = useCallback(() => {
-    try { if (typeof restoreSamples === 'function') restoreSamples(); } catch {}
-  }, [restoreSamples]);
-
-  const categoryById = useMemo(
-    () => new Map(categories.map((c) => [c.id, c])),
-    [categories],
-  );
-
-  const totalWords = useMemo(
-    () => {
-      try { return stories.reduce((n, s) => n + countWords(s.content), 0); } catch { return 0; }
-    },
-    [stories],
-  );
+  const shelves = useMemo(() => {
+    const base = [{ id: "all", name: "All stories" }];
+    return [...base, ...categories.map(c => ({ id: c.id, name: c.name }))];
+  }, [categories]);
 
   const filtered = useMemo(() => {
-    try {
-      const q = query.trim().toLowerCase();
-      return stories
-        .filter((s) => {
-          if (shelf === "all") return true;
-          if (shelf === "unshelved") return s.categoryId === null;
-          return s.categoryId === shelf;
-        })
-        .filter((s) =>
-          q ? (s.title + " " + s.content).toLowerCase().includes(q) : true,
-        )
-        .sort((a, b) => {
-          try { return Date.parse(b.updatedAt) - Date.parse(a.updatedAt); } catch { return 0; }
-        });
-    } catch { return stories; }
-  }, [stories, query, shelf]);
+    const q = search.toLowerCase().trim();
+    return stories.filter(s => {
+      const shelfName = getEffectiveShelfName(s, categories);
+      const displayShelf = shelfName.toLowerCase();
+      const catMatch = active === "all" || displayShelf === active.toLowerCase() || s.categoryId === active;
+      const textMatch = !q || s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q) || displayShelf.includes(q);
+      return catMatch && textMatch;
+    });
+  }, [stories, categories, active, search]);
 
-  const chips = useMemo(() => {
-    try {
-      const countFor = (id: string) =>
-        id === "all"
-          ? stories.length
-          : id === "unshelved"
-            ? stories.filter((s) => s.categoryId === null).length
-            : stories.filter((s) => s.categoryId === id).length;
-      return [
-        { id: "all", name: "All", color: "#e5b168", count: countFor("all") },
-        ...categories.map((c) => ({ ...c, count: countFor(c.id) })),
-        ...(countFor("unshelved") > 0
-          ? [{ id: "unshelved", name: "Unshelved", color: "#71717a", count: countFor("unshelved") }]
-          : []),
-      ];
-    } catch { return []; }
-  }, [stories, categories]);
+  const countAll = stories.length;
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 pb-28">
-      {/* Header */}
-      <div className="pt-14">
-        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-ember-600 dark:text-ember-400/90">
-          {formatLongDate(new Date().toISOString())}
-        </p>
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-6">
-          <h1 className="font-serif text-[clamp(36px,5.5vw,58px)] font-medium leading-[1.02] tracking-[-0.01em] text-zinc-900 dark:text-zinc-50">
-            The bookshelf<span className="text-ember-500 dark:text-ember-400">.</span>
-          </h1>
-          <div className="relative">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-600" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search titles & text…"
-              className="h-10 w-full rounded-full border border-zinc-200 bg-zinc-100/80 pl-9 pr-4 text-[13px] text-zinc-800 placeholder:text-zinc-400 focus:border-ember-400/50 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-200 dark:placeholder:text-zinc-600 sm:w-60"
-            />
+    <div className="mx-auto max-w-6xl px-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 py-6 dark:border-white/[0.06]">
+        <div className="flex gap-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-ember-400 to-orange-400 text-ember-50 shadow-[0_8px_20px_-12px_rgba(251,146,60,0.7)]">
+            <Sparkles size={16} />
+          </span>
+          <div>
+            <h2 className="font-serif text-xl font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">Your library</h2>
+            <p className="max-w-[52ch] text-[13px] leading-5 text-zinc-500 dark:text-zinc-400">
+              Stories live offline on this device and sync when cloud is connected. Tap a story card to continue writing.
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-zinc-400 dark:text-zinc-500">{countAll} {countAll === 1 ? "story" : "stories"}</p>
           </div>
         </div>
-        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-          {stories.length} {plural(stories.length, "story", "stories")} · {totalWords.toLocaleString()} words ·{" "}
-          {categories.length} {plural(categories.length, "shelf", "shelves")}
-        </p>
+        <div className="max-w-[340px] text-left sm:text-right">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">CnG Writing Guide</p>
+          <ol className="mt-2 list-decimal pl-4 text-left text-[13px] leading-6 text-zinc-600 marker:text-zinc-400 dark:text-zinc-400 sm:list-none sm:pl-0">
+            <li>1. Pick a story or start a new one.</li>
+            <li>2. Write freely — changes save automatically.</li>
+            <li>3. Add chapters as new stories in the same shelf.</li>
+          </ol>
+        </div>
       </div>
 
-      {/* Shelf chips */}
-      <div className="no-scrollbar mt-8 flex gap-2 overflow-x-auto pb-1">
-        {chips.map((chip) => {
-          const active = shelf === chip.id;
-          return (
-            <button
-              key={chip.id}
-              onClick={() => { try { setShelf(chip.id); } catch {} }}
-              className={`flex h-8 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[12px] font-medium transition ${
-                active
-                  ? "border-ember-400/50 bg-ember-400/10 text-ember-700 dark:text-ember-200"
-                  : "border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-800 dark:border-white/[0.08] dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-200"
-              }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: chip.color }} />
-              {chip.name}
-              <span className={`font-mono text-[10px] ${active ? "text-ember-600/80 dark:text-ember-300/70" : "text-zinc-400 dark:text-zinc-600"}`}>
-                {chip.count}
-              </span>
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3 py-4">
+        <div className="relative">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            value={search}
+            onChange={e => { const v = e.currentTarget.value; try { setSearch(v); } catch {} }}
+            placeholder="Filter by title, text, or shelf…"
+            className="h-9 rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm outline-none placeholder:text-zinc-400 focus:border-ember-400/50 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100"
+          />
+        </div>
+        <div className="inline-flex flex-wrap items-center gap-1.5 rounded-full border border-zinc-200 p-1 dark:border-white/10">
+          <Filter size={13} className="ml-2 mr-0.5 text-zinc-400" />
+          {shelves.map(s => {
+            const isActive = active === s.id || (active === "all" && s.id === "all");
+            const count = s.id === "all" ? countAll : getShelfCount(stories, s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => { try { if (typeof setActive === 'function') setActive(s.id); } catch {} }}
+                className={`px-3.5 py-1.5 text-[13px] font-medium transition whitespace-nowrap ${isActive ? "rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"}`}
+              >
+                {s.name} <span className="ml-1 font-mono text-[11px] opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => { try { if (typeof onCreateStory === 'function') onCreateStory(); } catch {} }}
+          className="ml-auto inline-flex h-9 items-center justify-center rounded-lg border border-zinc-200 bg-black/[0.03] px-4 text-sm font-semibold text-zinc-700 transition hover:border-zinc-300 dark:border-white/15 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:border-white/20"
+        >
+          Start writing
+        </button>
       </div>
 
-      {/* Grid */}
-      {stories.length === 0 ? (
-        <div className="mt-16 flex flex-col items-center rounded-2xl border border-dashed border-zinc-200 px-6 py-20 text-center dark:border-white/10">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl border border-ember-400/25 bg-ember-400/10 text-ember-600 dark:text-ember-300">
-            <BookOpen size={20} />
-          </span>
-          <h2 className="mt-5 font-serif text-2xl text-zinc-900 dark:text-zinc-100">The shelf is empty</h2>
-          <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-zinc-500">
-            Start your first story, restore the samples, or import a{" "}
-            <span className="font-mono text-zinc-400">.json</span> backup from the top bar.
+      {filtered.length === 0 ? (
+        <div className="grid place-items-center rounded-2xl border border-dashed border-zinc-200 bg-black/[0.01] px-6 py-14 dark:border-white/10">
+          <p className="max-w-[42ch] text-center text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            No stories match. Clear the search, switch shelf, or start a new draft — it will appear here right after the first save.
           </p>
-          <div className="mt-6 flex gap-2">
-            <button
-              onClick={safeOnNewStory}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-ember-400 px-4 text-[13px] font-bold text-night-950 transition hover:bg-ember-300"
-            >
-              <Plus size={15} strokeWidth={2.6} /> Start writing
-            </button>
-            <button
-              onClick={safeRestoreSamples}
-              className="inline-flex h-9 items-center rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:border-white/20"
-            >
-              Restore samples
-            </button>
-          </div>
         </div>
       ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((story, i) => (
-            <StoryCard
-              key={story.id}
-              story={story}
-              category={story.categoryId ? categoryById.get(story.categoryId) : undefined}
-              onOpen={() => safeOnOpenStory(story.id)}
-              delay={Math.min(i, 9) * 45}
-            />
-          ))}
-
-          {/* New story tile */}
-          <button
-            onClick={safeOnNewStory}
-            className="group flex min-h-[230px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-200 text-zinc-400 transition hover:border-ember-400/40 hover:text-ember-600 dark:border-white/10 dark:text-zinc-600 dark:hover:text-ember-300"
-          >
-            <span className="grid h-10 w-10 place-items-center rounded-full border border-current">
-              <Plus size={18} />
-            </span>
-            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.28em]">
-              New story
-            </span>
-          </button>
+        <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map(s => {
+            const words = countWords(s.content);
+            const shelfName = getEffectiveShelfName(s, categories);
+            const isDeletable = s.categoryId ? isDeletableCategory(categories, s.categoryId) : false;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  try { if (typeof onSelectStory === 'function') onSelectStory(s.id); } catch {}
+                }}
+                className={`group relative flex min-h-[200px] flex-col rounded-2xl border px-5 pb-4 pt-5 text-left shadow-sm transition ${
+                  isDeletable
+                    ? "border-red-200 bg-red-50/40 dark:border-red-900/30 dark:bg-red-950/10"
+                    : "border-zinc-200 bg-white dark:border-white/[0.07] dark:bg-white/[0.02]"
+                } hover:shadow-md`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="line-clamp-2 pr-2 font-serif text-[17px] font-semibold leading-6 tracking-tight text-zinc-800 dark:text-zinc-100">
+                    {s.title || "Untitled"}
+                  </span>
+                  {isDeletable && (
+                    <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:bg-red-900/30 dark:text-red-300">Deletable</span>
+                  )}
+                </div>
+                <span className="mt-1 font-mono text-[11px] uppercase tracking-widest text-ember-600 dark:text-ember-300">{shelfName}</span>
+                <p className="mt-3 line-clamp-3 text-[13px] leading-6 text-zinc-500 dark:text-zinc-400">{(s.content || "No content yet — tap to start writing.").slice(0, 220)}</p>
+                <div className="mt-auto flex items-center justify-between pt-4 font-mono text-[11px] text-zinc-500 dark:text-zinc-500">
+                  <span>{words.toLocaleString()} words</span>
+                  <span className="flex items-center gap-2">
+                    <span className="hidden sm:inline" title={formatDate(s.updatedAt)}>{timeAgo(s.updatedAt)} · {formatDate(s.updatedAt)}</span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={e => {
+                        try { e.stopPropagation(); if (typeof onDeleteStory === 'function') onDeleteStory(s.id); } catch {}
+                      }}
+                      onKeyDown={e => {
+                        try {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (typeof onDeleteStory === 'function') onDeleteStory(s.id); }
+                        } catch {}
+                      }}
+                      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition ${isDeletable ? "border-red-200 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-800 dark:text-red-300" : "border-zinc-200 text-zinc-400 hover:border-red-300 hover:text-red-600 dark:border-white/10 dark:text-zinc-500"}`}
+                      title={isDeletable ? "Delete this story" : "Delete"}
+                    >
+                      <Trash2 size={13} />
+                    </span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
-
-      {stories.length > 0 && filtered.length === 0 && (
-        <p className="mt-16 text-center font-serif text-xl italic text-zinc-500">
-          Nothing on this shelf matches “{query}”.
-        </p>
-      )}
-    </main>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-interface StoryCardProps {
-  story: Story;
-  category?: { name: string; color: string };
-  onOpen: () => void;
-  delay: number;
-}
-
-function StoryCard({ story, category, onOpen = () => {}, delay }: StoryCardProps) {
-  let words = 0;
-  let excerpt = "";
-  try { words = countWords(story.content); } catch { words = 0; }
-  try { excerpt = stripMarkdown(story.content).replace(/\n+/g, " ").slice(0, 220); } catch { excerpt = ""; }
-
-  const safeOnOpen = () => {
-    try { if (typeof onOpen === 'function') onOpen(); } catch {}
-  };
-
-  return (
-    <article
-      onClick={safeOnOpen}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        try { if (e.key === "Enter" && typeof onOpen === 'function') onOpen(); } catch {}
-      }}
-      style={{ animationDelay: `${delay}ms` }}
-      className="group flex animate-rise cursor-pointer flex-col rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-ember-400/50 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:shadow-none dark:hover:border-ember-400/30 dark:hover:bg-white/[0.035]"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500">
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: category?.color ?? "#71717a" }}
-          />
-          {category?.name ?? "Unshelved"}
-        </span>
-        <ArrowUpRight
-          size={15}
-          className="text-ember-600 opacity-0 transition group-hover:opacity-100 dark:text-ember-300"
-        />
-      </div>
-
-      <h2 className="mt-3 line-clamp-2 font-serif text-[22px] font-medium leading-snug text-zinc-900 transition group-hover:text-ember-600 dark:text-zinc-100 dark:group-hover:text-ember-100">
-        {story.title || "Untitled"}
-      </h2>
-
-      <p className="mt-2 line-clamp-3 flex-1 font-serif text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400/90">
-        {excerpt || "A blank page, waiting."}
-      </p>
-
-      <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 dark:border-white/[0.05] dark:text-zinc-500">
-        <span>{words.toLocaleString()} words</span>
-        <span>{(() => { try { return timeAgo(story.updatedAt); } catch { return ""; } })()}</span>
-      </div>
-    </article>
+    </div>
   );
 }
