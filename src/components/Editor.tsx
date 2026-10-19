@@ -58,17 +58,17 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
     }, 0);
   }, [onBack]);
 
-  /* Scroll reset on story change — safe even if story missing */
   useEffect(() => {
     try {
       window.scrollTo(0, 0);
     } catch {}
-    return undefined;
   }, [storyId]);
 
-  /* Autosize the two textareas — only when story exists */
   useLayoutEffect(() => {
-    if (!story) return;
+    if (!story) {
+      return;
+    }
+
     for (const el of [titleRef.current, bodyRef.current]) {
       if (!el) continue;
       try {
@@ -76,25 +76,36 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         el.style.height = `${el.scrollHeight}px`;
       } catch {}
     }
-    return undefined;
   }, [story?.title, story?.content, storyId, story]);
 
-  /* Autosave indicator (persistence itself happens in the context) */
   useEffect(() => {
-    if (!story) return undefined;
-    setSaveState("saving");
-    const t = window.setTimeout(() => {
-      try {
-        setSaveState("saved");
-        setSavedAt(new Date());
-      } catch {}
-    }, 650);
+    if (!story) {
+      return;
+    }
+
+    let timerId: number | null = null;
+
+    try {
+      setSaveState("saving");
+      timerId = window.setTimeout(() => {
+        try {
+          setSaveState("saved");
+          setSavedAt(new Date());
+        } catch {}
+      }, 650);
+    } catch {}
+
     return () => {
-      try { window.clearTimeout(t); } catch {}
+      try {
+        if (timerId !== null && typeof timerId !== 'undefined') {
+          clearTimeout(timerId);
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
     };
   }, [story?.title, story?.content, story?.categoryId, story]);
 
-  /* ⌘/Ctrl+S — reassure, don't reload */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       try {
@@ -104,14 +115,22 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         }
       } catch {}
     };
-    try { document.addEventListener("keydown", onKey); } catch {}
+
+    try {
+      document.addEventListener("keydown", onKey);
+    } catch {}
+
     return () => {
-      try { document.removeEventListener("keydown", onKey); } catch {}
+      try {
+        if (typeof onKey === 'function') {
+          document.removeEventListener("keydown", onKey);
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
     };
   }, [notify]);
 
-  // Route guard: show graceful fallback instead of auto-calling onBack during mount
-  // which could cause React tree unmount conflicts (white screen).
   if (!story) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-night-950">
@@ -157,7 +176,6 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
 
   return (
     <div className="min-h-screen">
-      {/* ------- floating chrome ------- */}
       <div className="fixed inset-x-0 top-0 z-40 bg-gradient-to-b from-zinc-50 via-zinc-50/85 to-transparent pb-5 dark:from-night-950 dark:via-night-950/85">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-4 opacity-90 transition-opacity duration-500 hover:opacity-100 sm:px-6">
           <div className="flex items-center gap-3">
@@ -182,7 +200,6 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Shelf picker */}
             <Menu
               align="end"
               panel={(close) => (
@@ -262,10 +279,8 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
               )}
             </Menu>
 
-            {/* Feature 3 — single-story export */}
             <ExportMenu story={story} />
 
-            {/* Overflow */}
             <Menu
               align="end"
               panel={(close) => (
@@ -303,7 +318,6 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         </div>
       </div>
 
-      {/* ------- writing surface ------- */}
       <div className="mx-auto w-full max-w-[700px] px-6 pb-[32vh] pt-32">
         <p className="flex items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.28em] text-zinc-400 dark:text-zinc-600">
           <span
@@ -316,7 +330,7 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         </p>
 
         <textarea
-          ref={titleRef}
+          ref={(el) => { titleRef.current = el; }}
           rows={1}
           value={story.title}
           onChange={(e) => { try { handleUpdate({ title: e.target.value }); } catch {} }}
@@ -337,7 +351,7 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         </div>
 
         <textarea
-          ref={bodyRef}
+          ref={(el) => { bodyRef.current = el; }}
           value={story.content}
           onChange={(e) => { try { handleUpdate({ content: e.target.value }); } catch {} }}
           placeholder="Begin writing… the page is patient."
@@ -345,7 +359,6 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         />
       </div>
 
-      {/* ------- bottom status ------- */}
       <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 opacity-45 transition-opacity duration-500 hover:opacity-100">
         <div className="flex h-9 items-center gap-3 rounded-full border border-zinc-200 bg-white/90 px-4 font-mono text-[10.5px] text-zinc-500 shadow-sm backdrop-blur-md dark:border-white/[0.08] dark:bg-night-900/85 dark:shadow-none">
           <span className={`h-1.5 w-1.5 rounded-full ${saveState === "saving" ? "animate-pulse bg-ember-400" : "bg-emerald-400/70"}`} />

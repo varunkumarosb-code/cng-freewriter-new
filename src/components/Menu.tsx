@@ -15,22 +15,40 @@ export function Menu({ children, panel, align = "end", panelClassName = "" }: Me
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      return;
+    }
+
     const onPointerDown = (e: MouseEvent) => {
       try {
         if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
       } catch {}
     };
+
     const onKey = (e: KeyboardEvent) => {
       try { if (e.key === "Escape") setOpen(false); } catch {}
     };
+
     try {
       document.addEventListener("mousedown", onPointerDown);
       document.addEventListener("keydown", onKey);
     } catch {}
+
     return () => {
-      try { document.removeEventListener("mousedown", onPointerDown); } catch {}
-      try { document.removeEventListener("keydown", onKey); } catch {}
+      try {
+        if (typeof onPointerDown === 'function') {
+          document.removeEventListener("mousedown", onPointerDown);
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
+      try {
+        if (typeof onKey === 'function') {
+          document.removeEventListener("keydown", onKey);
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
     };
   }, [open]);
 

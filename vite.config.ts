@@ -17,12 +17,15 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-  esbuild: {
-    keepNames: true,
-    minifyIdentifiers: false,
-  },
   build: {
+    minify: false,
+    sourcemap: 'inline',
     target: 'es2020',
-    minify: 'esbuild',
+  },
+  esbuild: {
+    minifyIdentifiers: false,
+    minifySyntax: false,
+    minifyWhitespace: false,
+    keepNames: true,
   }
 });

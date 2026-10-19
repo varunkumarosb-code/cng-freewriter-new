@@ -19,13 +19,27 @@ function PocketBasePanel() {
     pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null
   );
 
-  // P7: Badge reactivity — listen to authStore changes without reload
   useEffect(() => {
-    const unsub = pb.authStore.onChange(() => {
-      setAuthedUser(pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null);
-    });
+    let unsubscribe: unknown;
+
+    try {
+      unsubscribe = pb.authStore.onChange(() => {
+        try {
+          setAuthedUser(pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null);
+        } catch {}
+      });
+    } catch (err) {
+      console.error("pb.authStore.onChange failed:", err);
+    }
+
     return () => {
-      try { (unsub as unknown as () => void)?.(); } catch {}
+      try {
+        if (typeof unsubscribe === 'function') {
+          (unsubscribe as () => void)();
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
     };
   }, []);
 
@@ -42,11 +56,9 @@ function PocketBasePanel() {
       await pb.collection("users").authWithPassword(email.trim(), password);
       setAuthedUser(pb.authStore.model?.email || email);
       notify("success", "Connected to PocketBase", `Logged in as ${email}`);
-      // No reload — TopBar and this panel react via pb.authStore.onChange
-      // Trigger a remote sync check (LibraryContext will pick up next persist)
       try {
         const { fetchRemoteStories } = await import("../lib/storage");
-        await fetchRemoteStories(); // warm up; LibraryContext effect will merge on next mount
+        await fetchRemoteStories();
       } catch {}
     } catch (err: unknown) {
       console.error(err);
@@ -62,9 +74,9 @@ function PocketBasePanel() {
   };
 
   const handleDisconnect = () => {
-    pb.authStore.clear();
-    setAuthedUser(null);
-    notify("info", "Disconnected", "App is now running in local-only mode.");
+    try { pb.authStore.clear(); } catch {}
+    try { setAuthedUser(null); } catch {}
+    try { notify("info", "Disconnected", "App is now running in local-only mode."); } catch {}
   };
 
   return (
@@ -167,21 +179,34 @@ function ThemeToggle() {
         setTheme(isDark ? "dark" : "light");
       } catch {}
     };
-    // Observe class changes (e.g., external toggles)
-    const obs = new MutationObserver(check);
-    try { obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] }); } catch {}
-    return () => obs.disconnect();
+
+    let observer: MutationObserver | null = null;
+
+    try {
+      observer = new MutationObserver(check);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    } catch {}
+
+    return () => {
+      try {
+        if (observer && typeof observer.disconnect === 'function') {
+          observer.disconnect();
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
+    };
   }, []);
 
   const setDark = () => {
-    document.documentElement.classList.add("dark");
-    localStorage.setItem("cngwriter:theme", "dark");
-    setTheme("dark");
+    try { document.documentElement.classList.add("dark"); } catch {}
+    try { localStorage.setItem("cngwriter:theme", "dark"); } catch {}
+    try { setTheme("dark"); } catch {}
   };
   const setLight = () => {
-    document.documentElement.classList.remove("dark");
-    localStorage.setItem("cngwriter:theme", "light");
-    setTheme("light");
+    try { document.documentElement.classList.remove("dark"); } catch {}
+    try { localStorage.setItem("cngwriter:theme", "light"); } catch {}
+    try { setTheme("light"); } catch {}
   };
 
   const base = "flex-1 rounded-md text-[11.5px] font-medium transition";
@@ -216,12 +241,31 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const { settings, updateSettings } = useLibrary();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      try {
+        if (e.key === "Escape" && typeof onClose === 'function') {
+          onClose();
+        }
+      } catch {}
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+
+    try {
+      document.addEventListener("keydown", onKey);
+    } catch {}
+
+    return () => {
+      try {
+        if (typeof onKey === 'function') {
+          document.removeEventListener("keydown", onKey);
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
+    };
   }, [open, onClose]);
 
   if (!open) return null;

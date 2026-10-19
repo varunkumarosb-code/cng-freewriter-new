@@ -22,6 +22,7 @@ export function TopBar({ onNewStory = () => {}, onOpenSettings = () => {} }: Top
 
   useEffect(() => {
     let unsubscribe: unknown;
+
     try {
       unsubscribe = pb.authStore.onChange(() => {
         try { setIsConnected(pb.authStore.isValid); } catch {}
@@ -29,18 +30,23 @@ export function TopBar({ onNewStory = () => {}, onOpenSettings = () => {} }: Top
     } catch (err) {
       console.error("pb.authStore.onChange failed:", err);
     }
+
     return () => {
       try {
-        if (typeof unsubscribe === 'function') (unsubscribe as () => void)();
-      } catch {}
+        if (typeof unsubscribe === 'function') {
+          (unsubscribe as () => void)();
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
     };
   }, []);
 
   const handleNewStory = () => {
-    if (typeof onNewStory === 'function') onNewStory();
+    try { if (typeof onNewStory === 'function') onNewStory(); } catch {}
   };
   const handleOpenSettings = () => {
-    if (typeof onOpenSettings === 'function') onOpenSettings();
+    try { if (typeof onOpenSettings === 'function') onOpenSettings(); } catch {}
   };
 
   const handleExportAll = () => {
