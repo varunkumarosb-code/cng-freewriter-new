@@ -27,12 +27,15 @@ function Shell() {
 
   const goToShelf = useCallback(() => {
     try {
-      startTransition(() => {
-        setView({ name: "shelf" });
-      });
-    } catch {
-      try { setView({ name: "shelf" }); } catch {}
-    }
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    } catch {}
+    setTimeout(() => {
+      try {
+        setView({ name: 'shelf' });
+      } catch {}
+    }, 0);
   }, []);
 
   const openStory = useCallback((id: string) => {
