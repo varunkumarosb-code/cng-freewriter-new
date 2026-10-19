@@ -79,122 +79,169 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastId = useRef(0);
 
-  /* --- toasts ----------------------------------------------------- */
   const dismissToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    try { setToasts((prev) => prev.filter((t) => t.id !== id)); } catch {}
   }, []);
 
   const notify = useCallback(
     (type: ToastType, title: string, message?: string) => {
-      const id = ++toastId.current;
-      setToasts((prev) => [...prev.slice(-3), { id, type, title, message }]);
-      window.setTimeout(() => dismissToast(id), 4600);
+      let newId: number | null = null;
+      try {
+        newId = ++toastId.current;
+        setToasts((prev) => [...prev.slice(-3), { id: newId as number, type, title, message }]);
+      } catch {}
+      try {
+        if (newId !== null) {
+          window.setTimeout(() => {
+            try { dismissToast(newId as number); } catch {}
+          }, 4600);
+        }
+      } catch {}
     },
     [dismissToast],
   );
 
-  /* --- initial cloud sync on startup — P4: match by remoteId first --- */
   useEffect(() => {
-    import("../lib/storage").then(({ fetchRemoteStories }) => {
-      fetchRemoteStories().then((remote) => {
-        if (remote && remote.length > 0) {
-          setStories((prev) => {
-            // Build lookup by both remoteId and id to avoid duplicates
-            const byRemoteId = new Map(prev.filter((s) => s.remoteId).map((s) => [s.remoteId!, s]));
-            const byId = new Map(prev.map((s) => [s.id, s]));
-            const toAdd: Story[] = [];
-            for (const r of remote) {
-              const existsByRemote = r.remoteId ? byRemoteId.get(r.remoteId) : undefined;
-              const existsById = byId.get(r.id);
-              if (!existsByRemote && !existsById) {
-                toAdd.push(r);
+    let cancelled = false;
+
+    try {
+      import("../lib/storage").then(({ fetchRemoteStories }) => {
+        try {
+          fetchRemoteStories().then((remote) => {
+            try {
+              if (cancelled) return;
+              if (remote && remote.length > 0) {
+                setStories((prev) => {
+                  try {
+                    const byRemoteId = new Map(prev.filter((s) => s.remoteId).map((s) => [s.remoteId!, s]));
+                    const byId = new Map(prev.map((s) => [s.id, s]));
+                    const toAdd: Story[] = [];
+                    for (const r of remote) {
+                      const existsByRemote = r.remoteId ? byRemoteId.get(r.remoteId) : undefined;
+                      const existsById = byId.get(r.id);
+                      if (!existsByRemote && !existsById) {
+                        toAdd.push(r);
+                      }
+                    }
+                    if (toAdd.length === 0) return prev;
+                    return [...prev, ...toAdd];
+                  } catch { return prev; }
+                });
               }
-              // If exists, we keep local version (last-write-wins is handled on sync, not here)
-            }
-            if (toAdd.length === 0) return prev;
-            return [...prev, ...toAdd];
-          });
-        }
-      }).catch(() => {});
-    });
+            } catch {}
+          }).catch(() => {});
+        } catch {}
+      });
+    } catch {}
+
+    return () => {
+      try {
+        cancelled = true;
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
+    };
   }, []);
 
-  /* --- persistence (debounced, skip first render) + PB sync with proper remoteId callback — P4 --- */
   const firstRun = useRef(true);
+
   useEffect(() => {
     if (firstRun.current) {
-      firstRun.current = false;
+      try { firstRun.current = false; } catch {}
       return;
     }
-    const t = window.setTimeout(() => {
-      persistLibrary({ stories, categories, settings });
-      // Trigger PB sync with state callback instead of direct mutation
-      import("../lib/storage").then(({ syncToPocketBase }) => {
-        syncToPocketBase(stories, (localId, remoteId) => {
-          setStories((prev) =>
-            prev.map((s) => (s.id === localId ? { ...s, remoteId } : s))
-          );
-        });
-      });
-    }, 250);
-    return () => window.clearTimeout(t);
+
+    let timerId: number | null = null;
+
+    try {
+      timerId = window.setTimeout(() => {
+        try {
+          persistLibrary({ stories, categories, settings });
+        } catch {}
+        try {
+          import("../lib/storage").then(({ syncToPocketBase }) => {
+            try {
+              syncToPocketBase(stories, (localId, remoteId) => {
+                try {
+                  setStories((prev) =>
+                    prev.map((s) => (s.id === localId ? { ...s, remoteId } : s))
+                  );
+                } catch {}
+              });
+            } catch {}
+          });
+        } catch {}
+      }, 250);
+    } catch {}
+
+    return () => {
+      try {
+        if (timerId !== null && typeof timerId !== 'undefined') {
+          clearTimeout(timerId);
+        }
+      } catch (e) {
+        console.warn("Cleanup error guarded:", e);
+      }
+    };
   }, [stories, categories, settings]);
 
-  /* --- story / category CRUD -------------------------------------- */
   const createStory = useCallback((categoryId: string | null = null): string => {
     const id = safeId();
     const now = new Date().toISOString();
-    setStories((prev) => [
-      { id, title: "", content: "", categoryId, createdAt: now, updatedAt: now },
-      ...prev,
-    ]);
+    try {
+      setStories((prev) => [
+        { id, title: "", content: "", categoryId, createdAt: now, updatedAt: now },
+        ...prev,
+      ]);
+    } catch {}
     return id;
   }, []);
 
   const updateStory = useCallback(
     (id: string, patch: Partial<Pick<Story, "title" | "content" | "categoryId">>) => {
-      setStories((prev) =>
-        prev.map((s) => {
-          if (s.id !== id) return s;
-          // P9: seed stories get new UUID on first edit to avoid cloud merge weirdness
-          // We handle it by keeping same id but marking as non-syncable until edit;
-          // Alternative approach: if seed ID and patch changes content/title, assign new UUID
-          // For now we keep seed ID but syncToPocketBase will skip it (treated local-only)
-          // until it has remoteId. This avoids breaking Editor's storyId reference.
-          // If user explicitly edits a seed story, we keep its ID but allow future sync
-          // by not skipping after first edit — storage.ts skips only if id startsWith story- AND no remoteId.
-          // So first edit still won't sync; second edit after we could consider assigning UUID.
-          // Simpler: keep skip logic in storage.ts; no ID mutation needed here.
-          return { ...s, ...patch, updatedAt: new Date().toISOString() };
-        }),
-      );
+      try {
+        setStories((prev) =>
+          prev.map((s) => {
+            try {
+              if (s.id !== id) return s;
+              return { ...s, ...patch, updatedAt: new Date().toISOString() };
+            } catch { return s; }
+          }),
+        );
+      } catch {}
     },
     [],
   );
 
   const deleteStory = useCallback(
     (id: string) => {
-      // Capture remoteId before filtering
       let remoteId: string | undefined;
-      setStories((prev) => {
-        const target = prev.find((s) => s.id === id);
-        remoteId = target?.remoteId;
-        return prev.filter((s) => s.id !== id);
-      });
-      // P3: verify delete sync with user-visible toast on failure
-      if (remoteId) {
-        import("../lib/storage").then(({ deleteRemoteStory }) => {
-          deleteRemoteStory(remoteId!)
-            .then(() => {
-              // Optional success toast could be noisy; keep silent
-            })
-            .catch((err: unknown) => {
-              const msg = err instanceof Error ? err.message : String(err);
-              notify("error", "Cloud delete failed", msg || "Story was removed locally but not from cloud.");
-            });
+      try {
+        setStories((prev) => {
+          try {
+            const target = prev.find((s) => s.id === id);
+            remoteId = target?.remoteId;
+            return prev.filter((s) => s.id !== id);
+          } catch { return prev; }
         });
+      } catch {}
+      if (remoteId) {
+        try {
+          import("../lib/storage").then(({ deleteRemoteStory }) => {
+            try {
+              deleteRemoteStory(remoteId as string)
+                .then(() => {})
+                .catch((err: unknown) => {
+                  try {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    notify("error", "Cloud delete failed", msg || "Story was removed locally but not from cloud.");
+                  } catch {}
+                });
+            } catch {}
+          });
+        } catch {}
       }
-      notify("info", "Story deleted", "It was removed from this device.");
+      try { notify("info", "Story deleted", "It was removed from this device."); } catch {}
     },
     [notify],
   );
@@ -203,29 +250,29 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     (name: string): string => {
       const trimmed = name.trim();
       if (!trimmed) return "";
-      // Use functional update to avoid stale closure (P10)
       let returnedId = "";
-      setCategories((prev) => {
-        const existing = prev.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
-        if (existing) {
-          returnedId = existing.id;
-          return prev;
-        }
-        const newId = safeId();
-        const color = CATEGORY_COLORS[prev.length % CATEGORY_COLORS.length];
-        returnedId = newId;
-        return [...prev, { id: newId, name: trimmed, color }];
-      });
-      // For synchronous return, we need to check current categories synchronously too
-      // Fallback: search in current state (may be stale) but functional update already set returnedId
-      // If returnedId still empty due to batch, compute synchronously
+      try {
+        setCategories((prev) => {
+          try {
+            const existing = prev.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+            if (existing) {
+              returnedId = existing.id;
+              return prev;
+            }
+            const newId = safeId();
+            const color = CATEGORY_COLORS[prev.length % CATEGORY_COLORS.length];
+            returnedId = newId;
+            return [...prev, { id: newId, name: trimmed, color }];
+          } catch { return prev; }
+        });
+      } catch {}
       if (!returnedId) {
-        // This path unlikely; compute fallback
-        const existing = categories.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
-        if (existing) return existing.id;
-        const newId = safeId();
-        // Note: categories update already queued; return newId
-        return newId;
+        try {
+          const existing = categories.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+          if (existing) return existing.id;
+          const newId = safeId();
+          return newId;
+        } catch { return ""; }
       }
       return returnedId;
     },
@@ -233,84 +280,90 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   );
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
-    setSettings((prev) => ({ ...prev, ...patch }));
+    try { setSettings((prev) => ({ ...prev, ...patch })); } catch {}
   }, []);
 
-  /* --- Feature 1: export everything ------------------------------- */
   const exportAll = useCallback(() => {
-    const filename = exportAllData(stories, categories, settings);
-    setSettings((prev) => ({ ...prev, lastBackupAt: new Date().toISOString() }));
-    notify(
-      "success",
-      "Backup exported",
-      `${filename} — ${stories.length} stories, ${categories.length} categories.`,
-    );
+    try {
+      const filename = exportAllData(stories, categories, settings);
+      setSettings((prev) => ({ ...prev, lastBackupAt: new Date().toISOString() }));
+      notify(
+        "success",
+        "Backup exported",
+        `${filename} — ${stories.length} stories, ${categories.length} categories.`,
+      );
+    } catch {}
   }, [stories, categories, settings, notify]);
 
-  /* --- Feature 2: import & merge ---------------------------------- */
   const importBackup = useCallback(
     async (file: File) => {
       try {
         const backup = await readBackupFile(file);
         const merged = mergeBackup({ stories, categories }, backup);
-        setStories(merged.stories);
-        setCategories(merged.categories);
+        try { setStories(merged.stories); } catch {}
+        try { setCategories(merged.categories); } catch {}
 
         const { report } = merged;
         if (report.added + report.updated === 0) {
-          notify(
+          try { notify(
             "info",
             "Nothing new to import",
             `All ${report.skipped} ${report.skipped === 1 ? "story was" : "stories were"} already up to date.`,
-          );
+          ); } catch {}
         } else {
-          const parts = [
-            `${report.added} added`,
-            `${report.updated} updated`,
-            report.skipped ? `${report.skipped} already current` : null,
-            report.categoriesAdded ? `${report.categoriesAdded} new categories` : null,
-          ].filter(Boolean);
-          notify("success", "Backup restored — bookshelf updated", parts.join(" · "));
+          try {
+            const parts = [
+              `${report.added} added`,
+              `${report.updated} updated`,
+              report.skipped ? `${report.skipped} already current` : null,
+              report.categoriesAdded ? `${report.categoriesAdded} new categories` : null,
+            ].filter(Boolean);
+            notify("success", "Backup restored — bookshelf updated", parts.join(" · "));
+          } catch {}
         }
       } catch (err) {
-        notify(
-          "error",
-          "Import failed",
-          err instanceof BackupError ? err.message : "That file couldn't be read as JSON.",
-        );
+        try {
+          notify(
+            "error",
+            "Import failed",
+            err instanceof BackupError ? err.message : "That file couldn't be read as JSON.",
+          );
+        } catch {}
       }
     },
     [stories, categories, notify],
   );
 
-  /* --- Feature 3: single-story export ------------------------------ */
   const exportSingle = useCallback(
     (story: Story, format: StoryExportFormat) => {
-      const shelf = categories.find((c) => c.id === story.categoryId)?.name ?? null;
-      const filename = exportStory(story, format, shelf);
-      notify(
-        "success",
-        format === "md" ? "Exported as Markdown" : "Exported as Plain Text",
-        filename,
-      );
+      try {
+        const shelf = categories.find((c) => c.id === story.categoryId)?.name ?? null;
+        const filename = exportStory(story, format, shelf);
+        notify(
+          "success",
+          format === "md" ? "Exported as Markdown" : "Exported as Plain Text",
+          filename,
+        );
+      } catch {}
     },
     [categories, notify],
   );
 
-  /* --- maintenance -------------------------------------------------- */
   const restoreSamples = useCallback(() => {
-    const seeded = seedLibrary();
-    setStories(seeded.stories);
-    setCategories(seeded.categories);
-    setSettings((prev) => ({ ...prev }));
-    notify("info", "Sample library restored", "Four stories returned to the bookshelf.");
+    try {
+      const seeded = seedLibrary();
+      try { setStories(seeded.stories); } catch {}
+      try { setCategories(seeded.categories); } catch {}
+      try { setSettings((prev) => ({ ...prev })); } catch {}
+      try { notify("info", "Sample library restored", "Four stories returned to the bookshelf."); } catch {}
+    } catch {}
   }, [notify]);
 
   const eraseAll = useCallback(() => {
-    setStories([]);
-    setCategories([]);
-    setSettings((prev) => ({ writerName: prev.writerName, lastBackupAt: null }));
-    notify("info", "Library erased", "Everything on this device was removed.");
+    try { setStories([]); } catch {}
+    try { setCategories([]); } catch {}
+    try { setSettings((prev) => ({ writerName: prev.writerName, lastBackupAt: null })); } catch {}
+    try { notify("info", "Library erased", "Everything on this device was removed."); } catch {}
   }, [notify]);
 
   const value = useMemo<LibraryValue>(

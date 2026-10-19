@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, startTransition } from "react";
 import { LibraryProvider, useLibrary } from "./state/LibraryContext";
 import { TopBar } from "./components/TopBar";
 import { Bookshelf } from "./components/Bookshelf";
@@ -17,19 +17,35 @@ function Shell() {
   const openNewStory = useCallback(() => {
     try {
       const id = typeof createStory === 'function' ? createStory() : "";
-      if (id) setView({ name: "editor", id });
+      if (id) {
+        startTransition(() => {
+          setView({ name: "editor", id });
+        });
+      }
     } catch {}
   }, [createStory]);
 
   const goToShelf = useCallback(() => {
-    try { setView({ name: "shelf" }); } catch {}
+    try {
+      startTransition(() => {
+        setView({ name: "shelf" });
+      });
+    } catch {
+      try { setView({ name: "shelf" }); } catch {}
+    }
   }, []);
 
   const openStory = useCallback((id: string) => {
-    try { if (typeof id === 'string' && id) setView({ name: "editor", id }); } catch {}
+    try {
+      if (typeof id === 'string' && id) {
+        startTransition(() => {
+          setView({ name: "editor", id });
+        });
+      }
+    } catch {}
   }, []);
 
-  /* Reflect the current story in the tab title */
+  /* Reflect the current story in the tab title — no cleanup needed */
   useEffect(() => {
     try {
       if (view.name === "editor") {
@@ -41,7 +57,6 @@ function Shell() {
         document.title = "CnG Writer — Distraction-Free Writing";
       }
     } catch {}
-    return undefined;
   }, [view, stories]);
 
   return (
