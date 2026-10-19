@@ -37,7 +37,7 @@ export function Menu({ children, panel, align = "end", panelClassName = "" }: Me
       {children({ toggle: () => setOpen((v) => !v), open })}
       {open && (
         <div
-          className={`absolute ${align === "end" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 min-w-[248px] origin-top animate-menu rounded-xl border border-white/[0.08] bg-night-850/[0.97] p-1.5 shadow-[0_28px_70px_-16px_rgba(0,0,0,0.85)] backdrop-blur-md ${panelClassName}`}
+          className={`absolute ${align === "end" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 min-w-[248px] origin-top animate-menu rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl backdrop-blur-md dark:border-white/[0.08] dark:bg-night-850/[0.97] dark:shadow-[0_28px_70px_-16px_rgba(0,0,0,0.85)] ${panelClassName}`}
         >
           {panel(close)}
         </div>
@@ -48,12 +48,12 @@ export function Menu({ children, panel, align = "end", panelClassName = "" }: Me
 
 export function MenuLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="px-2.5 pb-1.5 pt-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-600">
+    <p className="px-2.5 pb-1.5 pt-2 font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-600">
       {children}
     </p>
   );
 }
 
 export function MenuDivider() {
-  return <div className="mx-2 my-1.5 h-px bg-white/[0.06]" />;
+  return <div className="mx-2 my-1.5 h-px bg-zinc-200 dark:bg-white/[0.06]" />;
 }

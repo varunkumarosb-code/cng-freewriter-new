@@ -64,8 +64,8 @@ export function BackupPanel() {
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-zinc-100">
-          <HardDrive size={15} className="text-ember-400" />
+        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-zinc-900 dark:text-zinc-100">
+          <HardDrive size={15} className="text-ember-500 dark:text-ember-400" />
           Backup &amp; Export
         </h3>
         <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-500">
@@ -83,12 +83,12 @@ export function BackupPanel() {
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
+            className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-3 dark:border-white/[0.06] dark:bg-white/[0.02]"
           >
-            <p className="font-mono text-[17px] font-semibold leading-none text-zinc-100">
+            <p className="font-mono text-[17px] font-semibold leading-none text-zinc-900 dark:text-zinc-100">
               {s.value}
             </p>
-            <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-600">
+            <p className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-600">
               {s.label}
             </p>
           </div>
@@ -97,11 +97,11 @@ export function BackupPanel() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Export card */}
-        <div className="flex flex-col rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
-          <span className="grid h-9 w-9 place-items-center rounded-lg border border-ember-400/25 bg-ember-400/10 text-ember-300">
+        <div className="flex flex-col rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/[0.07] dark:bg-white/[0.02]">
+          <span className="grid h-9 w-9 place-items-center rounded-lg border border-ember-400/25 bg-ember-400/10 text-ember-600 dark:text-ember-300">
             <Download size={15} />
           </span>
-          <p className="mt-3 text-[13.5px] font-semibold text-zinc-100">Export all stories</p>
+          <p className="mt-3 text-[13.5px] font-semibold text-zinc-900 dark:text-zinc-100">Export all stories</p>
           <p className="mt-1 flex-1 text-[11.5px] leading-relaxed text-zinc-500">
             One <span className="font-mono text-zinc-400">.json</span> with every story, category
             and setting — versioned and human-readable.
@@ -136,7 +136,7 @@ export function BackupPanel() {
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-4 text-center transition ${
             dragging
               ? "border-ember-400/70 bg-ember-400/[0.06]"
-              : "border-zinc-700/80 bg-transparent hover:border-ember-400/40 hover:bg-white/[0.015]"
+              : "border-zinc-300 bg-transparent hover:border-ember-400/40 hover:bg-zinc-50 dark:border-zinc-700/80 dark:hover:bg-white/[0.015]"
           }`}
         >
           <input ref={inputRef} type="file" accept="application/json,.json" className="hidden" onChange={onInput} />
@@ -144,12 +144,12 @@ export function BackupPanel() {
             className={`grid h-9 w-9 place-items-center rounded-lg border transition ${
               dragging
                 ? "border-ember-400/40 bg-ember-400/15 text-ember-300"
-                : "border-white/[0.08] bg-white/[0.03] text-zinc-400"
+                : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400"
             }`}
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
           </span>
-          <p className="mt-3 text-[13px] font-semibold text-zinc-200">
+          <p className="mt-3 text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">
             {dragging ? "Drop to restore" : "Drop a backup here"}
           </p>
           <p className="mt-1 text-[11.5px] text-zinc-500">
@@ -165,15 +165,15 @@ export function BackupPanel() {
       </p>
 
       {/* Danger zone */}
-      <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
+      <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-white/[0.05]">
         <div>
-          <p className="text-[12px] font-semibold text-zinc-300">Start over</p>
-          <p className="mt-0.5 text-[11px] text-zinc-600">Restore the samples, or wipe this device clean.</p>
+          <p className="text-[12px] font-semibold text-zinc-700 dark:text-zinc-300">Start over</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-600">Restore the samples, or wipe this device clean.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={restoreSamples}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-[11.5px] font-medium text-zinc-400 transition hover:border-white/20 hover:text-zinc-100"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 text-[11.5px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
           >
             <RotateCcw size={12.5} />
             Samples
@@ -191,7 +191,7 @@ export function BackupPanel() {
             className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11.5px] font-semibold transition ${
               confirmErase
                 ? "border-rose-400/60 bg-rose-400/15 text-rose-300"
-                : "border-white/10 text-zinc-500 hover:border-rose-400/40 hover:text-rose-300"
+                : "border-zinc-200 text-zinc-500 hover:border-rose-400/40 hover:text-rose-600 dark:border-white/10 dark:hover:text-rose-300"
             }`}
           >
             <Trash2 size={12.5} />

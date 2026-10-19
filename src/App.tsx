@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LibraryProvider, useLibrary } from "./state/LibraryContext";
 import { TopBar } from "./components/TopBar";
 import { Bookshelf } from "./components/Bookshelf";
@@ -13,10 +13,14 @@ function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { createStory, stories } = useLibrary();
 
-  const openNewStory = () => {
+  const openNewStory = useCallback(() => {
     const id = createStory();
     setView({ name: "editor", id });
-  };
+  }, [createStory]);
+
+  const goToShelf = useCallback(() => setView({ name: "shelf" }), []);
+
+  const openStory = useCallback((id: string) => setView({ name: "editor", id }), []);
 
   /* Reflect the current story in the tab title */
   useEffect(() => {
@@ -42,13 +46,13 @@ function Shell() {
         <>
           <TopBar onNewStory={openNewStory} onOpenSettings={() => setSettingsOpen(true)} />
           <Bookshelf
-            onOpenStory={(id) => setView({ name: "editor", id })}
+            onOpenStory={openStory}
             onNewStory={openNewStory}
           />
           <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         </>
       ) : (
-        <Editor storyId={view.id} onBack={() => setView({ name: "shelf" })} />
+        <Editor storyId={view.id} onBack={goToShelf} />
       )}
     </div>
   );

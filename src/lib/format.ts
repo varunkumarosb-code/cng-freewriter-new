@@ -1,6 +1,7 @@
 /** Small formatting helpers shared across the app. */
 
-export function countWords(text: string): number {
+export function countWords(text: string | null | undefined): number {
+  if (!text || typeof text !== "string") return 0;
   const cleaned = text.replace(/[`*_~#>|\[\]()]/g, " ").trim();
   if (!cleaned) return 0;
   return cleaned.split(/\s+/).length;

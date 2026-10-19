@@ -8,9 +8,9 @@ const ICONS: Record<ToastType, typeof Info> = {
 };
 
 const ACCENTS: Record<ToastType, string> = {
-  success: "text-emerald-300 bg-emerald-400/10 border-emerald-400/20",
-  error: "text-rose-300 bg-rose-400/10 border-rose-400/25",
-  info: "text-ember-300 bg-ember-400/10 border-ember-400/25",
+  success: "text-emerald-600 bg-emerald-400/10 border-emerald-400/25 dark:text-emerald-300 dark:border-emerald-400/20",
+  error: "text-rose-600 bg-rose-400/10 border-rose-400/25 dark:text-rose-300",
+  info: "text-ember-600 bg-ember-400/10 border-ember-400/25 dark:text-ember-300",
 };
 
 /** Fixed toast stack — success / error reports for exports & imports. */
@@ -28,7 +28,7 @@ export function ToastStack() {
           <div
             key={toast.id}
             role="status"
-            className="pointer-events-auto animate-toast-in rounded-xl border border-white/[0.08] bg-night-850/95 p-3.5 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.8)] backdrop-blur-md"
+            className="pointer-events-auto animate-toast-in rounded-xl border border-zinc-200 bg-white p-3.5 shadow-xl backdrop-blur-md dark:border-white/[0.08] dark:bg-night-850/95 dark:shadow-[0_24px_60px_-16px_rgba(0,0,0,0.8)]"
           >
             <div className="flex items-start gap-3">
               <span
@@ -37,7 +37,7 @@ export function ToastStack() {
                 <Icon size={14} strokeWidth={2.2} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold leading-tight text-zinc-100">
+                <p className="text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-100">
                   {toast.title}
                 </p>
                 {toast.message && (
@@ -49,7 +49,7 @@ export function ToastStack() {
               <button
                 onClick={() => dismissToast(toast.id)}
                 aria-label="Dismiss"
-                className="rounded-md p-1 text-zinc-600 transition hover:bg-white/[0.06] hover:text-zinc-300"
+                className="rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/[0.06] dark:hover:text-zinc-300"
               >
                 <X size={13} />
               </button>

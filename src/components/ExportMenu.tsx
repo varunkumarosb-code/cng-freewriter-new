@@ -16,7 +16,7 @@ export function ExportMenu({ story }: ExportMenuProps) {
   const { exportSingle, exportAll } = useLibrary();
 
   const item =
-    "group flex w-full items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition hover:bg-white/[0.05]";
+    "group flex w-full items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition hover:bg-zinc-100 dark:hover:bg-white/[0.05]";
 
   return (
     <Menu
@@ -34,11 +34,11 @@ export function ExportMenu({ story }: ExportMenuProps) {
               close();
             }}
           >
-            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition group-hover:border-ember-400/30 group-hover:text-ember-300">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 transition group-hover:border-ember-400/30 group-hover:text-ember-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:text-ember-300">
               <FileText size={14} />
             </span>
             <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-zinc-200">
+              <span className="block text-[13px] font-medium text-zinc-800 dark:text-zinc-200">
                 Plain Text <span className="font-mono text-[10.5px] text-zinc-500">.txt</span>
               </span>
               <span className="mt-0.5 block text-[11.5px] leading-snug text-zinc-500">
@@ -54,11 +54,11 @@ export function ExportMenu({ story }: ExportMenuProps) {
               close();
             }}
           >
-            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-zinc-400 transition group-hover:border-ember-400/30 group-hover:text-ember-300">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 transition group-hover:border-ember-400/30 group-hover:text-ember-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:text-ember-300">
               <Braces size={14} />
             </span>
             <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-zinc-200">
+              <span className="block text-[13px] font-medium text-zinc-800 dark:text-zinc-200">
                 Markdown <span className="font-mono text-[10.5px] text-zinc-500">.md</span>
               </span>
               <span className="mt-0.5 block text-[11.5px] leading-snug text-zinc-500">
@@ -69,7 +69,7 @@ export function ExportMenu({ story }: ExportMenuProps) {
 
           <MenuDivider />
           <button
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-200"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-white/[0.05] dark:hover:text-zinc-200"
             onClick={() => {
               exportAll();
               close();

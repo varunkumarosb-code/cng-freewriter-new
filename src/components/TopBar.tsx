@@ -12,9 +12,17 @@ interface TopBarProps {
  * App chrome for the Bookshelf — wordmark, plus the Backup & Export
  * actions: Export All Stories (JSON) and Import Backup (.json).
  */
+import { useEffect, useState } from "react";
+
 export function TopBar({ onNewStory, onOpenSettings }: TopBarProps) {
   const { exportAll } = useLibrary();
-  const isConnected = pb.authStore.isValid;
+  const [isConnected, setIsConnected] = useState(pb.authStore.isValid);
+
+  useEffect(() => {
+    return pb.authStore.onChange(() => {
+      setIsConnected(pb.authStore.isValid);
+    });
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-zinc-50/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-night-950/80">

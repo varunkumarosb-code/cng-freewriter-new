@@ -92,13 +92,13 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
               onClick={() => setShelf(chip.id)}
               className={`flex h-8 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[12px] font-medium transition ${
                 active
-                  ? "border-ember-400/50 bg-ember-400/10 text-ember-200"
-                  : "border-white/[0.08] text-zinc-400 hover:border-white/20 hover:text-zinc-200"
+                  ? "border-ember-400/50 bg-ember-400/10 text-ember-700 dark:text-ember-200"
+                  : "border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-800 dark:border-white/[0.08] dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-200"
               }`}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: chip.color }} />
               {chip.name}
-              <span className={`font-mono text-[10px] ${active ? "text-ember-300/70" : "text-zinc-600"}`}>
+              <span className={`font-mono text-[10px] ${active ? "text-ember-600/80 dark:text-ember-300/70" : "text-zinc-400 dark:text-zinc-600"}`}>
                 {chip.count}
               </span>
             </button>
@@ -108,11 +108,11 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
 
       {/* Grid */}
       {stories.length === 0 ? (
-        <div className="mt-16 flex flex-col items-center rounded-2xl border border-dashed border-white/10 px-6 py-20 text-center">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl border border-ember-400/25 bg-ember-400/10 text-ember-300">
+        <div className="mt-16 flex flex-col items-center rounded-2xl border border-dashed border-zinc-200 px-6 py-20 text-center dark:border-white/10">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl border border-ember-400/25 bg-ember-400/10 text-ember-600 dark:text-ember-300">
             <BookOpen size={20} />
           </span>
-          <h2 className="mt-5 font-serif text-2xl text-zinc-100">The shelf is empty</h2>
+          <h2 className="mt-5 font-serif text-2xl text-zinc-900 dark:text-zinc-100">The shelf is empty</h2>
           <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-zinc-500">
             Start your first story, restore the samples, or import a{" "}
             <span className="font-mono text-zinc-400">.json</span> backup from the top bar.
@@ -126,7 +126,7 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
             </button>
             <button
               onClick={restoreSamples}
-              className="inline-flex h-9 items-center rounded-lg border border-white/10 px-4 text-[13px] font-medium text-zinc-300 transition hover:border-white/20"
+              className="inline-flex h-9 items-center rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:border-white/20"
             >
               Restore samples
             </button>
@@ -147,7 +147,7 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
           {/* New story tile */}
           <button
             onClick={onNewStory}
-            className="group flex min-h-[230px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 text-zinc-600 transition hover:border-ember-400/40 hover:text-ember-300"
+            className="group flex min-h-[230px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-200 text-zinc-400 transition hover:border-ember-400/40 hover:text-ember-600 dark:border-white/10 dark:text-zinc-600 dark:hover:text-ember-300"
           >
             <span className="grid h-10 w-10 place-items-center rounded-full border border-current">
               <Plus size={18} />

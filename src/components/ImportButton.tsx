@@ -35,7 +35,7 @@ export function ImportButton({ compact = false }: { compact?: boolean }) {
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         title="Restore from a CnG Writer backup (.json)"
-        className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[13px] font-medium text-zinc-400 transition hover:border-white/20 hover:text-zinc-100 disabled:opacity-50"
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 disabled:opacity-50 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
       >
         {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
         <span className={compact ? "hidden" : "hidden sm:inline"}>Import</span>

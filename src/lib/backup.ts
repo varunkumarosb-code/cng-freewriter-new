@@ -105,8 +105,9 @@ export function exportAllData(
 export type StoryExportFormat = "txt" | "md";
 
 /** Best-effort flattening of Markdown into clean reading text. */
-export function stripMarkdown(md: string): string {
-  return md
+export function stripMarkdown(md: string | null | undefined): string {
+  const safe = md || "";
+  return safe
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/```[a-z]*\n?/gi, ""))
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")

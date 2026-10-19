@@ -123,7 +123,7 @@ export async function fetchRemoteStories(): Promise<Story[] | null> {
       remoteId: r.id,
       title: r.title || "Untitled",
       content: r.content || "",
-      categoryId: null,
+      categoryId: r.category || null,
       createdAt: r.created || new Date().toISOString(),
       updatedAt: r.updated || new Date().toISOString(),
     }));
@@ -133,39 +133,39 @@ export async function fetchRemoteStories(): Promise<Story[] | null> {
   }
 }
 
+export async function deleteRemoteStory(remoteId: string): Promise<void> {
+  if (!pb.authStore.isValid || !remoteId) return;
+  try {
+    await pb.collection("cng_stories").delete(remoteId);
+  } catch (err) {
+    console.error("Failed deleting remote story:", remoteId, err);
+  }
+}
+
 export function syncToPocketBase(stories: Story[]): void {
   if (!pb.authStore.isValid || !pb.authStore.model) return;
 
   if (syncTimeout) clearTimeout(syncTimeout);
 
-  // Debounced auto-save (2 seconds delay to reduce server load)
   syncTimeout = setTimeout(async () => {
     const userId = pb.authStore.model?.id;
     if (!userId) return;
 
     for (const story of stories) {
-      const wordCount = story.content.trim().split(/\s+/).filter(Boolean).length;
+      const wordCount = (story.content || "").trim().split(/\s+/).filter(Boolean).length;
 
-      const payload: Record<string, any> = {
+      const cleanPayload = {
         title: story.title || "Untitled",
         content: story.content || "",
+        category: story.categoryId || "",
         word_count: wordCount,
         user_id: userId,
       };
 
       try {
-        // Ensure payload NEVER contains custom string id for create
-        const cleanPayload = {
-          title: story.title || "Untitled",
-          content: story.content || "",
-          word_count: wordCount,
-          user_id: userId,
-        };
-
         if (story.remoteId) {
           await pb.collection("cng_stories").update(story.remoteId, cleanPayload);
         } else {
-          // PocketBase auto-generates clean 15-char ID
           const created = await pb.collection("cng_stories").create(cleanPayload);
           story.remoteId = created.id;
           try {

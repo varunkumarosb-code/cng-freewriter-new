@@ -136,7 +136,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const deleteStory = useCallback(
     (id: string) => {
-      setStories((prev) => prev.filter((s) => s.id !== id));
+      setStories((prev) => {
+        const target = prev.find((s) => s.id === id);
+        if (target?.remoteId) {
+          import("../lib/storage").then(({ deleteRemoteStory }) => {
+            deleteRemoteStory(target.remoteId!);
+          });
+        }
+        return prev.filter((s) => s.id !== id);
+      });
       notify("info", "Story deleted", "It was removed from this device.");
     },
     [notify],
@@ -146,20 +154,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     (name: string): string => {
       const trimmed = name.trim();
       if (!trimmed) return "";
-      let created = "";
-      setCategories((prev) => {
-        const existing = prev.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
-        if (existing) {
-          created = existing.id;
-          return prev;
-        }
-        created = crypto.randomUUID();
-        const color = CATEGORY_COLORS[prev.length % CATEGORY_COLORS.length];
-        return [...prev, { id: created, name: trimmed, color }];
-      });
-      return created;
+      
+      const existing = categories.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing) return existing.id;
+
+      const newId = crypto.randomUUID();
+      const color = CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length];
+      setCategories((prev) => [...prev, { id: newId, name: trimmed, color }]);
+      return newId;
     },
-    [],
+    [categories],
   );
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
