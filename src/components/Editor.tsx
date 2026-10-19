@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import {
   ArrowLeft,
   Check,
@@ -15,11 +15,20 @@ import { countWords, formatDate, formatTime, readingMinutes } from "../lib/forma
 
 interface EditorProps {
   storyId: string;
-  onBack: () => void;
+  onBack?: () => void;
+  onUpdate?: (id: string, patch: unknown) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function Editor({ storyId, onBack }: EditorProps) {
-  const { stories, categories, updateStory, deleteStory, createCategory, notify } = useLibrary();
+export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDelete = () => {} }: EditorProps) {
+  const library = useLibrary();
+  const stories = library?.stories ?? [];
+  const categories = library?.categories ?? [];
+  const updateStory = typeof library?.updateStory === 'function' ? library.updateStory : onUpdate as typeof library.updateStory;
+  const deleteStory = typeof library?.deleteStory === 'function' ? library.deleteStory : onDelete as typeof library.deleteStory;
+  const createCategory = typeof library?.createCategory === 'function' ? library.createCategory : (() => "") as typeof library.createCategory;
+  const notify = typeof library?.notify === 'function' ? library.notify : (() => {}) as typeof library.notify;
+
   const story = stories.find((s) => s.id === storyId);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -29,11 +38,16 @@ export function Editor({ storyId, onBack }: EditorProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newShelf, setNewShelf] = useState("");
 
+  const safeOnBack = useCallback(() => {
+    try { if (typeof onBack === 'function') onBack(); } catch {}
+  }, [onBack]);
+
   /* Scroll reset on story change — safe even if story missing */
   useEffect(() => {
     try {
       window.scrollTo(0, 0);
     } catch {}
+    return undefined;
   }, [storyId]);
 
   /* Autosize the two textareas — only when story exists */
@@ -46,29 +60,38 @@ export function Editor({ storyId, onBack }: EditorProps) {
         el.style.height = `${el.scrollHeight}px`;
       } catch {}
     }
+    return undefined;
   }, [story?.title, story?.content, storyId, story]);
 
   /* Autosave indicator (persistence itself happens in the context) */
   useEffect(() => {
-    if (!story) return;
+    if (!story) return undefined;
     setSaveState("saving");
     const t = window.setTimeout(() => {
-      setSaveState("saved");
-      setSavedAt(new Date());
+      try {
+        setSaveState("saved");
+        setSavedAt(new Date());
+      } catch {}
     }, 650);
-    return () => window.clearTimeout(t);
+    return () => {
+      try { window.clearTimeout(t); } catch {}
+    };
   }, [story?.title, story?.content, story?.categoryId, story]);
 
   /* ⌘/Ctrl+S — reassure, don't reload */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        notify("info", "Autosave is always on", "Every keystroke is stored locally.");
-      }
+      try {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+          e.preventDefault();
+          if (typeof notify === 'function') notify("info", "Autosave is always on", "Every keystroke is stored locally.");
+        }
+      } catch {}
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    try { document.addEventListener("keydown", onKey); } catch {}
+    return () => {
+      try { document.removeEventListener("keydown", onKey); } catch {}
+    };
   }, [notify]);
 
   // Route guard: show graceful fallback instead of auto-calling onBack during mount
@@ -81,7 +104,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
           This story may have been deleted or hasn&apos;t finished saving yet.
         </p>
         <button
-          onClick={onBack}
+          onClick={safeOnBack}
           className="mt-6 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300"
         >
           <ArrowLeft size={15} /> Back to Shelf
@@ -104,6 +127,18 @@ export function Editor({ storyId, onBack }: EditorProps) {
   const item =
     "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[0.05]";
 
+  const handleUpdate = (patch: Parameters<typeof updateStory>[1]) => {
+    try { if (typeof updateStory === 'function') updateStory(story.id, patch); } catch {}
+  };
+  const handleCreateCategory = (name: string): string => {
+    try { if (typeof createCategory === 'function') return createCategory(name); } catch {}
+    return "";
+  };
+  const handleDelete = () => {
+    try { if (typeof deleteStory === 'function') deleteStory(story.id); } catch {}
+    safeOnBack();
+  };
+
   return (
     <div className="min-h-screen">
       {/* ------- floating chrome ------- */}
@@ -111,7 +146,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-4 opacity-90 transition-opacity duration-500 hover:opacity-100 sm:px-6">
           <div className="flex items-center gap-3">
             <button
-              onClick={onBack}
+              onClick={safeOnBack}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
             >
               <ArrowLeft size={15} />
@@ -140,8 +175,8 @@ export function Editor({ storyId, onBack }: EditorProps) {
                   <button
                     className={item}
                     onClick={() => {
-                      updateStory(story.id, { categoryId: null });
-                      close();
+                      try { handleUpdate({ categoryId: null }); } catch {}
+                      try { close(); } catch {}
                     }}
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
@@ -153,8 +188,8 @@ export function Editor({ storyId, onBack }: EditorProps) {
                       key={c.id}
                       className={item}
                       onClick={() => {
-                        updateStory(story.id, { categoryId: c.id });
-                        close();
+                        try { handleUpdate({ categoryId: c.id }); } catch {}
+                        try { close(); } catch {}
                       }}
                     >
                       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
@@ -171,10 +206,10 @@ export function Editor({ storyId, onBack }: EditorProps) {
                       onChange={(e) => setNewShelf(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && newShelf.trim()) {
-                          const id = createCategory(newShelf);
-                          if (id) updateStory(story.id, { categoryId: id });
+                          const id = handleCreateCategory(newShelf);
+                          if (id) try { handleUpdate({ categoryId: id }); } catch {}
                           setNewShelf("");
-                          close();
+                          try { close(); } catch {}
                         }
                       }}
                       placeholder="New shelf…"
@@ -183,10 +218,10 @@ export function Editor({ storyId, onBack }: EditorProps) {
                     <button
                       aria-label="Add shelf"
                       onClick={() => {
-                        const id = createCategory(newShelf);
-                        if (id) updateStory(story.id, { categoryId: id });
+                        const id = handleCreateCategory(newShelf);
+                        if (id) try { handleUpdate({ categoryId: id }); } catch {}
                         setNewShelf("");
-                        close();
+                        try { close(); } catch {}
                       }}
                       className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-zinc-200 text-zinc-500 transition hover:border-ember-400/40 hover:text-ember-600 dark:border-white/10 dark:text-zinc-400 dark:hover:text-ember-300"
                     >
@@ -198,7 +233,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
             >
               {({ toggle }) => (
                 <button
-                  onClick={toggle}
+                  onClick={() => { try { if (typeof toggle === 'function') toggle(); } catch {} }}
                   className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
                 >
                   <span
@@ -225,12 +260,11 @@ export function Editor({ storyId, onBack }: EditorProps) {
                     onClick={() => {
                       if (!confirmDelete) {
                         setConfirmDelete(true);
-                        window.setTimeout(() => setConfirmDelete(false), 3200);
+                        try { window.setTimeout(() => setConfirmDelete(false), 3200); } catch {}
                         return;
                       }
-                      close();
-                      deleteStory(story.id);
-                      onBack();
+                      try { close(); } catch {}
+                      handleDelete();
                     }}
                   >
                     <Trash2 size={14} className={confirmDelete ? "text-rose-600 dark:text-rose-300" : "text-zinc-500"} />
@@ -241,7 +275,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
             >
               {({ toggle }) => (
                 <button
-                  onClick={toggle}
+                  onClick={() => { try { if (typeof toggle === 'function') toggle(); } catch {} }}
                   aria-label="More actions"
                   className="grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
                 >
@@ -269,11 +303,10 @@ export function Editor({ storyId, onBack }: EditorProps) {
           ref={titleRef}
           rows={1}
           value={story.title}
-          onChange={(e) => updateStory(story.id, { title: e.target.value })}
+          onChange={(e) => { try { handleUpdate({ title: e.target.value }); } catch {} }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              e.preventDefault();
-              bodyRef.current?.focus();
+              try { e.preventDefault(); bodyRef.current?.focus(); } catch {}
             }
           }}
           placeholder="Untitled"
@@ -290,7 +323,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
         <textarea
           ref={bodyRef}
           value={story.content}
-          onChange={(e) => updateStory(story.id, { content: e.target.value })}
+          onChange={(e) => { try { handleUpdate({ content: e.target.value }); } catch {} }}
           placeholder="Begin writing… the page is patient."
           className="min-h-[52vh] w-full resize-none overflow-hidden bg-transparent font-serif text-[19px] leading-[1.9] text-zinc-700 placeholder:italic placeholder:text-zinc-300 focus:outline-none dark:text-zinc-300 dark:placeholder:text-zinc-700"
         />

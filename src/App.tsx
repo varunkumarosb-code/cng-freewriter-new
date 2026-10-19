@@ -15,24 +15,33 @@ function Shell() {
   const { createStory, stories } = useLibrary();
 
   const openNewStory = useCallback(() => {
-    const id = createStory();
-    setView({ name: "editor", id });
+    try {
+      const id = typeof createStory === 'function' ? createStory() : "";
+      if (id) setView({ name: "editor", id });
+    } catch {}
   }, [createStory]);
 
-  const goToShelf = useCallback(() => setView({ name: "shelf" }), []);
+  const goToShelf = useCallback(() => {
+    try { setView({ name: "shelf" }); } catch {}
+  }, []);
 
-  const openStory = useCallback((id: string) => setView({ name: "editor", id }), []);
+  const openStory = useCallback((id: string) => {
+    try { if (typeof id === 'string' && id) setView({ name: "editor", id }); } catch {}
+  }, []);
 
   /* Reflect the current story in the tab title */
   useEffect(() => {
-    if (view.name === "editor") {
-      const story = stories.find((s) => s.id === view.id);
-      document.title = story?.title
-        ? `${story.title} — CnG Writer`
-        : "Untitled — CnG Writer";
-    } else {
-      document.title = "CnG Writer — Distraction-Free Writing";
-    }
+    try {
+      if (view.name === "editor") {
+        const story = stories.find((s) => s.id === view.id);
+        document.title = story?.title
+          ? `${story.title} — CnG Writer`
+          : "Untitled — CnG Writer";
+      } else {
+        document.title = "CnG Writer — Distraction-Free Writing";
+      }
+    } catch {}
+    return undefined;
   }, [view, stories]);
 
   return (
@@ -45,12 +54,12 @@ function Shell() {
 
       {view.name === "shelf" ? (
         <ErrorBoundary>
-          <TopBar onNewStory={openNewStory} onOpenSettings={() => setSettingsOpen(true)} />
+          <TopBar onNewStory={openNewStory} onOpenSettings={() => { try { setSettingsOpen(true); } catch {} }} />
           <Bookshelf
             onOpenStory={openStory}
             onNewStory={openNewStory}
           />
-          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+          <SettingsModal open={settingsOpen} onClose={() => { try { setSettingsOpen(false); } catch {} }} />
         </ErrorBoundary>
       ) : (
         <ErrorBoundary>

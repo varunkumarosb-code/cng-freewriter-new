@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { ArrowUpRight, BookOpen, Plus, Search } from "lucide-react";
 import type { Story } from "../lib/types";
 import { useLibrary } from "../state/LibraryContext";
@@ -6,14 +6,30 @@ import { stripMarkdown } from "../lib/backup";
 import { countWords, formatLongDate, plural, timeAgo } from "../lib/format";
 
 interface BookshelfProps {
-  onOpenStory: (id: string) => void;
-  onNewStory: () => void;
+  onOpenStory?: (id: string) => void;
+  onNewStory?: () => void;
 }
 
-export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
-  const { stories, categories, restoreSamples } = useLibrary();
+export function Bookshelf({ onOpenStory = () => {}, onNewStory = () => {} }: BookshelfProps) {
+  const library = useLibrary();
+  const stories = library?.stories ?? [];
+  const categories = library?.categories ?? [];
+  const restoreSamples = typeof library?.restoreSamples === 'function' ? library.restoreSamples : (() => {});
+
   const [query, setQuery] = useState("");
   const [shelf, setShelf] = useState<string>("all");
+
+  const safeOnOpenStory = useCallback((id: string) => {
+    try { if (typeof onOpenStory === 'function') onOpenStory(id); } catch {}
+  }, [onOpenStory]);
+
+  const safeOnNewStory = useCallback(() => {
+    try { if (typeof onNewStory === 'function') onNewStory(); } catch {}
+  }, [onNewStory]);
+
+  const safeRestoreSamples = useCallback(() => {
+    try { if (typeof restoreSamples === 'function') restoreSamples(); } catch {}
+  }, [restoreSamples]);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
@@ -21,38 +37,46 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
   );
 
   const totalWords = useMemo(
-    () => stories.reduce((n, s) => n + countWords(s.content), 0),
+    () => {
+      try { return stories.reduce((n, s) => n + countWords(s.content), 0); } catch { return 0; }
+    },
     [stories],
   );
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return stories
-      .filter((s) => {
-        if (shelf === "all") return true;
-        if (shelf === "unshelved") return s.categoryId === null;
-        return s.categoryId === shelf;
-      })
-      .filter((s) =>
-        q ? (s.title + " " + s.content).toLowerCase().includes(q) : true,
-      )
-      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    try {
+      const q = query.trim().toLowerCase();
+      return stories
+        .filter((s) => {
+          if (shelf === "all") return true;
+          if (shelf === "unshelved") return s.categoryId === null;
+          return s.categoryId === shelf;
+        })
+        .filter((s) =>
+          q ? (s.title + " " + s.content).toLowerCase().includes(q) : true,
+        )
+        .sort((a, b) => {
+          try { return Date.parse(b.updatedAt) - Date.parse(a.updatedAt); } catch { return 0; }
+        });
+    } catch { return stories; }
   }, [stories, query, shelf]);
 
   const chips = useMemo(() => {
-    const countFor = (id: string) =>
-      id === "all"
-        ? stories.length
-        : id === "unshelved"
-          ? stories.filter((s) => s.categoryId === null).length
-          : stories.filter((s) => s.categoryId === id).length;
-    return [
-      { id: "all", name: "All", color: "#e5b168", count: countFor("all") },
-      ...categories.map((c) => ({ ...c, count: countFor(c.id) })),
-      ...(countFor("unshelved") > 0
-        ? [{ id: "unshelved", name: "Unshelved", color: "#71717a", count: countFor("unshelved") }]
-        : []),
-    ];
+    try {
+      const countFor = (id: string) =>
+        id === "all"
+          ? stories.length
+          : id === "unshelved"
+            ? stories.filter((s) => s.categoryId === null).length
+            : stories.filter((s) => s.categoryId === id).length;
+      return [
+        { id: "all", name: "All", color: "#e5b168", count: countFor("all") },
+        ...categories.map((c) => ({ ...c, count: countFor(c.id) })),
+        ...(countFor("unshelved") > 0
+          ? [{ id: "unshelved", name: "Unshelved", color: "#71717a", count: countFor("unshelved") }]
+          : []),
+      ];
+    } catch { return []; }
   }, [stories, categories]);
 
   return (
@@ -89,7 +113,7 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
           return (
             <button
               key={chip.id}
-              onClick={() => setShelf(chip.id)}
+              onClick={() => { try { setShelf(chip.id); } catch {} }}
               className={`flex h-8 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[12px] font-medium transition ${
                 active
                   ? "border-ember-400/50 bg-ember-400/10 text-ember-700 dark:text-ember-200"
@@ -119,13 +143,13 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
           </p>
           <div className="mt-6 flex gap-2">
             <button
-              onClick={onNewStory}
+              onClick={safeOnNewStory}
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-ember-400 px-4 text-[13px] font-bold text-night-950 transition hover:bg-ember-300"
             >
               <Plus size={15} strokeWidth={2.6} /> Start writing
             </button>
             <button
-              onClick={restoreSamples}
+              onClick={safeRestoreSamples}
               className="inline-flex h-9 items-center rounded-lg border border-zinc-200 px-4 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:border-white/20"
             >
               Restore samples
@@ -139,14 +163,14 @@ export function Bookshelf({ onOpenStory, onNewStory }: BookshelfProps) {
               key={story.id}
               story={story}
               category={story.categoryId ? categoryById.get(story.categoryId) : undefined}
-              onOpen={() => onOpenStory(story.id)}
+              onOpen={() => safeOnOpenStory(story.id)}
               delay={Math.min(i, 9) * 45}
             />
           ))}
 
           {/* New story tile */}
           <button
-            onClick={onNewStory}
+            onClick={safeOnNewStory}
             className="group flex min-h-[230px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-200 text-zinc-400 transition hover:border-ember-400/40 hover:text-ember-600 dark:border-white/10 dark:text-zinc-600 dark:hover:text-ember-300"
           >
             <span className="grid h-10 w-10 place-items-center rounded-full border border-current">
@@ -177,17 +201,23 @@ interface StoryCardProps {
   delay: number;
 }
 
-function StoryCard({ story, category, onOpen, delay }: StoryCardProps) {
-  const words = countWords(story.content);
-  const excerpt = stripMarkdown(story.content).replace(/\n+/g, " ").slice(0, 220);
+function StoryCard({ story, category, onOpen = () => {}, delay }: StoryCardProps) {
+  let words = 0;
+  let excerpt = "";
+  try { words = countWords(story.content); } catch { words = 0; }
+  try { excerpt = stripMarkdown(story.content).replace(/\n+/g, " ").slice(0, 220); } catch { excerpt = ""; }
+
+  const safeOnOpen = () => {
+    try { if (typeof onOpen === 'function') onOpen(); } catch {}
+  };
 
   return (
     <article
-      onClick={onOpen}
+      onClick={safeOnOpen}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onOpen();
+        try { if (e.key === "Enter" && typeof onOpen === 'function') onOpen(); } catch {}
       }}
       style={{ animationDelay: `${delay}ms` }}
       className="group flex animate-rise cursor-pointer flex-col rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-ember-400/50 hover:shadow-md dark:border-white/[0.07] dark:bg-white/[0.02] dark:shadow-none dark:hover:border-ember-400/30 dark:hover:bg-white/[0.035]"
@@ -216,7 +246,7 @@ function StoryCard({ story, category, onOpen, delay }: StoryCardProps) {
 
       <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 dark:border-white/[0.05] dark:text-zinc-500">
         <span>{words.toLocaleString()} words</span>
-        <span>{timeAgo(story.updatedAt)}</span>
+        <span>{(() => { try { return timeAgo(story.updatedAt); } catch { return ""; } })()}</span>
       </div>
     </article>
   );

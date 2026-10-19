@@ -15,26 +15,35 @@ export function Menu({ children, panel, align = "end", panelClassName = "" }: Me
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onPointerDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      try {
+        if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      } catch {}
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      try { if (e.key === "Escape") setOpen(false); } catch {}
     };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKey);
+    try {
+      document.addEventListener("mousedown", onPointerDown);
+      document.addEventListener("keydown", onKey);
+    } catch {}
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
+      try { document.removeEventListener("mousedown", onPointerDown); } catch {}
+      try { document.removeEventListener("keydown", onKey); } catch {}
     };
   }, [open]);
 
-  const close = () => setOpen(false);
+  const close = () => {
+    try { setOpen(false); } catch {}
+  };
+  const toggle = () => {
+    try { setOpen((v) => !v); } catch {}
+  };
 
   return (
     <div ref={rootRef} className="relative">
-      {children({ toggle: () => setOpen((v) => !v), open })}
+      {children({ toggle, open })}
       {open && (
         <div
           className={`absolute ${align === "end" ? "right-0" : "left-0"} top-[calc(100%+8px)] z-50 min-w-[248px] origin-top animate-menu rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl backdrop-blur-md dark:border-white/[0.08] dark:bg-night-850/[0.97] dark:shadow-[0_28px_70px_-16px_rgba(0,0,0,0.85)] ${panelClassName}`}
