@@ -1,335 +1,155 @@
-import { useEffect, useState } from "react";
-import { CheckCircle2, Cloud, CloudOff, Loader2, RefreshCw, X } from "lucide-react";
-import { useLibrary } from "../state/LibraryContext";
-import { BackupPanel } from "./BackupPanel";
-import { pb, updatePbUrl } from "../lib/pocketbase";
+import { useEffect, useRef, useState } from "react";
+import { X, Cloud, LogOut, Upload, Download, Save, Trash2 } from "lucide-react";
+import type { Category, Story } from "../types";
+import { buildBackup, downloadJson, parseBackup, saveCategories, saveStories } from "../lib/storage";
+import { getStoredUrl, loadPbToken, pb, savePbToken, updatePbUrl } from "../lib/pocketbase";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  stories: Story[];
+  categories: Category[];
+  onImported: (s: Story[], c: Category[]) => void;
+  onClearLocal?: () => void;
 }
 
-function PocketBasePanel() {
-  const { notify } = useLibrary();
-  const [url, setUrl] = useState(pb.baseUrl || "https://salaryzapp-pb.onrender.com");
+export function SettingsModal({ open, onClose, stories, categories, onImported, onClearLocal }: SettingsModalProps) {
+  const [pbUrlInput, setPbUrlInput] = useState<string>(() => { try { return getStoredUrl(); } catch { return ""; } });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [authedUser, setAuthedUser] = useState<string | null>(
-    pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null
-  );
+  const [pbStatus, setPbStatus] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    let unsubscribe: unknown;
-
-    try {
-      unsubscribe = pb.authStore.onChange(() => {
-        try {
-          setAuthedUser(pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null);
-        } catch {}
-      });
-    } catch (err) {
-      console.error("pb.authStore.onChange failed:", err);
-    }
-
-    return () => {
-      try {
-        if (typeof unsubscribe === 'function') {
-          (unsubscribe as () => void)();
-        }
-      } catch (e) {
-        console.warn("Cleanup error guarded:", e);
-      }
-    };
-  }, []);
-
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password) {
-      notify("error", "Credentials required", "Please enter email and password.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      updatePbUrl(url);
-      await pb.collection("users").authWithPassword(email.trim(), password);
-      setAuthedUser(pb.authStore.model?.email || email);
-      notify("success", "Connected to PocketBase", `Logged in as ${email}`);
-      try {
-        const { fetchRemoteStories } = await import("../lib/storage");
-        await fetchRemoteStories();
-      } catch {}
-    } catch (err: unknown) {
-      console.error(err);
-      const typed = err as { status?: number; message?: string };
-      const msg =
-        typed?.status === 0
-          ? "Server cold-starting (~50s on Render free). Please wait a moment and click Save again."
-          : typed?.message || "Invalid credentials or collection rules issue.";
-      notify("error", "Connection failed", msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisconnect = () => {
-    try { pb.authStore.clear(); } catch {}
-    try { setAuthedUser(null); } catch {}
-    try { notify("info", "Disconnected", "App is now running in local-only mode."); } catch {}
-  };
-
-  return (
-    <section className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/[0.08] dark:bg-white/[0.02]">
-      <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-zinc-900 dark:text-zinc-100">
-          <Cloud size={16} className="text-ember-500 dark:text-ember-400" />
-          PocketBase Sync
-        </h3>
-        {authedUser ? (
-          <span className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 size={12} /> Connected
-          </span>
-        ) : (
-          <span className="flex items-center gap-1.5 font-mono text-[10px] text-zinc-500">
-            <CloudOff size={12} /> Local mode
-          </span>
-        )}
-      </div>
-
-      {authedUser ? (
-        <div className="flex items-center justify-between pt-1">
-          <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
-            User: <strong className="text-zinc-800 dark:text-zinc-200">{authedUser}</strong>
-          </p>
-          <button
-            onClick={handleDisconnect}
-            className="h-8 rounded-lg border border-zinc-200 px-3 text-[11.5px] font-medium text-zinc-600 transition hover:border-rose-400/40 hover:text-rose-600 dark:border-white/10 dark:text-zinc-400 dark:hover:text-rose-300"
-          >
-            Disconnect
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={handleConnect} className="space-y-3 pt-1">
-          <div>
-            <label className="block font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-zinc-500">
-              Server URL
-            </label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://salaryzapp-pb.onrender.com"
-              className="mt-1 h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-[12.5px] text-zinc-800 placeholder:text-zinc-400 focus:border-ember-400/40 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-200 dark:placeholder:text-zinc-600"
-            />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <label className="block font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-zinc-500">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="varunkumarosb@gmail.com"
-                className="mt-1 h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-[12.5px] text-zinc-800 placeholder:text-zinc-400 focus:border-ember-400/40 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-200 dark:placeholder:text-zinc-600"
-              />
-            </div>
-            <div>
-              <label className="block font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-zinc-500">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="mt-1 h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-[12.5px] text-zinc-800 placeholder:text-zinc-400 focus:border-ember-400/40 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-200 dark:placeholder:text-zinc-600"
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-ember-400 text-[12.5px] font-bold text-night-950 transition hover:bg-ember-300 disabled:opacity-50"
-          >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            {loading ? "Connecting (Render waking up)..." : "Save & Connect"}
-          </button>
-        </form>
-      )}
-    </section>
-  );
-}
-
-function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    try {
-      return document.documentElement.classList.contains("dark") ? "dark" : "light";
-    } catch {
-      return "dark";
-    }
-  });
+    if (!open) return;
+    try { setPbUrlInput(getStoredUrl()); } catch {}
+    return () => {};
+  }, [open]);
 
   useEffect(() => {
-    const check = () => {
-      try {
-        const isDark = document.documentElement.classList.contains("dark");
-        setTheme(isDark ? "dark" : "light");
-      } catch {}
-    };
-
-    let observer: MutationObserver | null = null;
-
-    try {
-      observer = new MutationObserver(check);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    } catch {}
-
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { try { if (e.key === 'Escape') onClose(); } catch {} };
+    document.addEventListener('keydown', onKey);
     return () => {
-      try {
-        if (observer && typeof observer.disconnect === 'function') {
-          observer.disconnect();
-        }
-      } catch (e) {
-        console.warn("Cleanup error guarded:", e);
-      }
-    };
-  }, []);
-
-  const setDark = () => {
-    try { document.documentElement.classList.add("dark"); } catch {}
-    try { localStorage.setItem("cngwriter:theme", "dark"); } catch {}
-    try { setTheme("dark"); } catch {}
-  };
-  const setLight = () => {
-    try { document.documentElement.classList.remove("dark"); } catch {}
-    try { localStorage.setItem("cngwriter:theme", "light"); } catch {}
-    try { setTheme("light"); } catch {}
-  };
-
-  const base = "flex-1 rounded-md text-[11.5px] font-medium transition";
-  const active = "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-white/10 dark:text-white dark:ring-white/10 font-bold";
-  const inactive = "text-zinc-600 hover:bg-zinc-200/80 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200";
-
-  return (
-    <div className="flex h-9 rounded-lg border border-zinc-200 bg-zinc-100 p-0.5 dark:border-white/10 dark:bg-white/[0.03]">
-      <button
-        type="button"
-        onClick={setDark}
-        aria-pressed={theme === "dark"}
-        data-active={theme === "dark"}
-        className={`${base} ${theme === "dark" ? active : inactive}`}
-      >
-        Dark
-      </button>
-      <button
-        type="button"
-        onClick={setLight}
-        aria-pressed={theme === "light"}
-        data-active={theme === "light"}
-        className={`${base} ${theme === "light" ? active : inactive}`}
-      >
-        Light
-      </button>
-    </div>
-  );
-}
-
-export function SettingsModal({ open, onClose }: SettingsModalProps) {
-  const { settings, updateSettings } = useLibrary();
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const onKey = (e: KeyboardEvent) => {
-      try {
-        if (e.key === "Escape" && typeof onClose === 'function') {
-          onClose();
-        }
-      } catch {}
-    };
-
-    try {
-      document.addEventListener("keydown", onKey);
-    } catch {}
-
-    return () => {
-      try {
-        if (typeof onKey === 'function') {
-          document.removeEventListener("keydown", onKey);
-        }
-      } catch (e) {
-        console.warn("Cleanup error guarded:", e);
-      }
+      try { document.removeEventListener('keydown', onKey); } catch (err) { console.warn("Cleanup error guarded:", err); }
     };
   }, [open, onClose]);
 
   if (!open) return null;
 
+  const authed = (() => { try { return pb.authStore.isValid; } catch { return false; } })();
+
+  const handleSavePbUrl = () => {
+    try {
+      updatePbUrl(pbUrlInput.trim());
+      setPbStatus("PocketBase URL saved. Login to sync.");
+      window.setTimeout(() => { try { setPbStatus(""); } catch {} }, 2500);
+    } catch {}
+  };
+
+  const handleLogin = async () => {
+    const url = pbUrlInput.trim();
+    if (!url) { try { setPbStatus("Enter PocketBase URL first."); } catch {} return; }
+    try { updatePbUrl(url); } catch {}
+    try {
+      setPbStatus("Signing in…");
+      const auth = await pb.collection('users').authWithPassword(email.trim(), password);
+      try { savePbToken(auth.token); } catch {}
+      try { setPbStatus(`Signed in as ${auth.record?.email ?? email.trim()}`); } catch {}
+      window.setTimeout(() => { try { setPbStatus(""); } catch {} }, 2500);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      try { setPbStatus(`Sign-in failed: ${msg}`); } catch {}
+    }
+  };
+
+  const handleLogout = () => {
+    try { pb.authStore.clear(); } catch {}
+    try { savePbToken(""); } catch {}
+    try { setPbStatus("Signed out — local only."); } catch {}
+    window.setTimeout(() => { try { setPbStatus(""); } catch {} }, 2000);
+  };
+
+  const handleExport = () => {
+    try {
+      downloadJson(buildBackup(stories, categories));
+      try { setPbStatus(`Exported backup JSON`); } catch {}
+      window.setTimeout(() => { try { setPbStatus(""); } catch {} }, 2000);
+    } catch {}
+  };
+
+  const handleImportClick = () => {
+    try { fileInputRef.current?.click(); } catch {}
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.currentTarget.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = parseBackup(text);
+      if (!parsed) { setPbStatus("Invalid backup file."); return; }
+      try { saveStories(parsed.stories); } catch {}
+      try { saveCategories(parsed.categories); } catch {}
+      try { if (typeof onImported === 'function') onImported(parsed.stories, parsed.categories); } catch {}
+      try { setPbStatus(`Imported ${parsed.stories.length} stories.`); } catch {}
+    } catch {
+      try { setPbStatus("Import failed."); } catch {}
+    } finally {
+      try { e.currentTarget.value = ""; } catch {}
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center">
-      <button
-        aria-label="Close settings"
-        onClick={onClose}
-        className="absolute inset-0 animate-fade-in bg-black/70 backdrop-blur-sm"
-      />
-      <div className="relative max-h-[86vh] w-full max-w-lg animate-rise overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-night-900 dark:shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)]">
-        <div className="space-y-6 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif text-[26px] font-semibold text-zinc-900 dark:text-zinc-50">Settings</h2>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="grid h-8 w-8 place-items-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-white/[0.05] dark:hover:text-zinc-200"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* Pen name & Theme Toggle */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="pen-name"
-                className="block font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500"
-              >
-                Pen name
-              </label>
-              <input
-                id="pen-name"
-                value={settings.writerName}
-                onChange={(e) => updateSettings({ writerName: e.target.value })}
-                placeholder="Writer"
-                className="h-9 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-[12.5px] text-zinc-900 placeholder:text-zinc-400 focus:border-ember-400/50 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100 dark:placeholder:text-zinc-600"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500">
-                Appearance
-              </label>
-              <ThemeToggle />
-            </div>
-          </div>
-
-          <div className="h-px bg-zinc-200 dark:bg-white/[0.06]" />
-
-          {/* Cloud Sync */}
-          <PocketBasePanel />
-
-          <div className="h-px bg-zinc-200 dark:bg-white/[0.06]" />
-
-          {/* Feature 1 + 2 live here */}
-          <BackupPanel />
-
-          <div className="flex items-center justify-between border-t border-zinc-200 pt-4 font-mono text-[9.5px] uppercase tracking-[0.18em] text-zinc-500 dark:border-white/[0.05] dark:text-zinc-600">
-            <span>CnG Writer · v1.0</span>
-            <span>backups are portable JSON</span>
-          </div>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm" onClick={() => { try { if (typeof onClose === 'function') onClose(); } catch {} }}>
+      <div onClick={e => { try { e.stopPropagation(); } catch {} }} className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-zinc-900">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-lg font-semibold text-zinc-900 dark:text-zinc-100">Settings</h2>
+          <button onClick={() => { try { if (typeof onClose === 'function') onClose(); } catch {} }} className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400"><X size={16}/></button>
         </div>
+
+        <section className="mt-5 rounded-xl border border-zinc-200 p-4 dark:border-white/10">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100"><Cloud size={15}/> PocketBase Cloud Sync</h3>
+          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Collection <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">cng_stories</code> with fields id, user, title, content, category, updated.</p>
+          <label className="mt-3 block text-xs font-medium text-zinc-600 dark:text-zinc-300">PocketBase URL</label>
+          <div className="mt-1 flex gap-2">
+            <input value={pbUrlInput} onChange={e => { try { setPbUrlInput(e.currentTarget.value); } catch {} }} placeholder="https://your-pocketbase.example" className="h-9 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-ember-400/50 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100" />
+            <button onClick={handleSavePbUrl} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"><Save size={14}/> Save</button>
+          </div>
+          {!authed ? (
+            <>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <input value={email} onChange={e => { try { setEmail(e.currentTarget.value); } catch {} }} placeholder="Email" className="h-9 rounded-lg border border-zinc-200 px-3 text-sm dark:border-white/10 dark:bg-white/[0.04]" />
+                <input value={password} onChange={e => { try { setPassword(e.currentTarget.value); } catch {} }} placeholder="Password" type="password" className="h-9 rounded-lg border border-zinc-200 px-3 text-sm dark:border-white/10 dark:bg-white/[0.04]" />
+              </div>
+              <button onClick={handleLogin} className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-lg bg-ember-400 px-3 text-sm font-bold text-night-950">Sign in & sync</button>
+            </>
+          ) : (
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+              <span className="text-sm text-emerald-800 dark:text-emerald-200">Signed in{pb.authStore.model?.email ? ` as ${pb.authStore.model.email}` : ""}</span>
+              <button onClick={handleLogout} className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-white/10 dark:bg-white/10"><LogOut size={12}/> Sign out</button>
+            </div>
+          )}
+          {pbStatus && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{pbStatus}</p>}
+          <p className="mt-2 font-mono text-[11px] text-zinc-400">Token key cngwriter:pb_token {loadPbToken() ? "· saved" : "· not set"}</p>
+        </section>
+
+        <section className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-white/10">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Backup & restore</h3>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Export is a single JSON — safe to keep in Drive/iCloud. Import merges into this device.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={handleExport} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-sm dark:border-white/10"><Download size={14}/> Export JSON</button>
+            <button onClick={handleImportClick} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-sm dark:border-white/10"><Upload size={14}/> Import JSON</button>
+            <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFileChange} />
+          </div>
+        </section>
+
+        {onClearLocal && (
+          <section className="mt-4 rounded-xl border border-red-200 bg-red-50/50 p-4 dark:border-red-900/30 dark:bg-red-950/10">
+            <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">Danger zone</h3>
+            <button onClick={() => { try { if (typeof onClearLocal === 'function') onClearLocal(); } catch {} }} className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-sm text-red-600 dark:border-red-800 dark:bg-zinc-900 dark:text-red-300"><Trash2 size={14}/> Clear local library</button>
+          </section>
+        )}
       </div>
     </div>
   );
