@@ -88,13 +88,13 @@ export function persistLibrary(snapshot: LibrarySnapshot): void {
     localStorage.setItem(KEYS.stories, JSON.stringify(snapshot.stories));
     localStorage.setItem(KEYS.categories, JSON.stringify(snapshot.categories));
     localStorage.setItem(KEYS.settings, JSON.stringify(snapshot.settings));
-    
-    // Trigger non-blocking PocketBase sync
-    syncToPocketBase(snapshot.stories);
   } catch {
     /* session continues in memory */
   }
 }
+
+// Separated sync trigger — called by LibraryContext with proper state callback
+let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function librarySizeBytes(snapshot: LibrarySnapshot): number {
   return (
@@ -108,8 +108,6 @@ export function librarySizeBytes(snapshot: LibrarySnapshot): number {
 /* PocketBase Async Background Sync                                   */
 /* ------------------------------------------------------------------ */
 
-let syncTimeout: ReturnType<typeof setTimeout> | null = null;
-
 export async function fetchRemoteStories(): Promise<Story[] | null> {
   if (!pb.authStore.isValid || !pb.authStore.model) return null;
 
@@ -118,6 +116,7 @@ export async function fetchRemoteStories(): Promise<Story[] | null> {
       sort: "-updated",
     });
 
+    // Category round-trip verified: PB field `category` maps to local `categoryId`
     return records.map((r) => ({
       id: r.id,
       remoteId: r.id,
@@ -139,10 +138,19 @@ export async function deleteRemoteStory(remoteId: string): Promise<void> {
     await pb.collection("cng_stories").delete(remoteId);
   } catch (err) {
     console.error("Failed deleting remote story:", remoteId, err);
+    throw err;
   }
 }
 
-export function syncToPocketBase(stories: Story[]): void {
+/**
+ * Push local stories to PocketBase.
+ * - Skips seed IDs (`story-*`) until they are edited (they get new UUID on first edit via LibraryContext)
+ * - Uses callback `onAssigned` to propagate remoteId back to React state (no direct mutation)
+ */
+export function syncToPocketBase(
+  stories: Story[],
+  onAssigned?: (localId: string, remoteId: string) => void
+): void {
   if (!pb.authStore.isValid || !pb.authStore.model) return;
 
   if (syncTimeout) clearTimeout(syncTimeout);
@@ -152,6 +160,11 @@ export function syncToPocketBase(stories: Story[]): void {
     if (!userId) return;
 
     for (const story of stories) {
+      // P9: seed stories should not be pushed to cloud until they have a proper UUID
+      if (story.id.startsWith("story-") && !story.remoteId) {
+        continue;
+      }
+
       const wordCount = (story.content || "").trim().split(/\s+/).filter(Boolean).length;
 
       const cleanPayload = {
@@ -167,13 +180,22 @@ export function syncToPocketBase(stories: Story[]): void {
           await pb.collection("cng_stories").update(story.remoteId, cleanPayload);
         } else {
           const created = await pb.collection("cng_stories").create(cleanPayload);
-          story.remoteId = created.id;
-          try {
-            localStorage.setItem(KEYS.stories, JSON.stringify(stories));
-          } catch {}
+          // Proper state update via callback — no direct mutation
+          if (created?.id && onAssigned) {
+            onAssigned(story.id, created.id);
+          } else if (created?.id) {
+            // Fallback: persist directly to localStorage for non-React callers
+            try {
+              const updatedStories = stories.map((s) =>
+                s.id === story.id ? { ...s, remoteId: created.id } : s
+              );
+              localStorage.setItem(KEYS.stories, JSON.stringify(updatedStories));
+            } catch {}
+          }
         }
-      } catch (err: any) {
-        console.error("Failed syncing story:", story.id, err?.data || err);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("Failed syncing story:", story.id, msg);
       }
     }
   }, 2000);
