@@ -29,30 +29,35 @@ export function Editor({ storyId, onBack }: EditorProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newShelf, setNewShelf] = useState("");
 
-  /* Route guard + scroll reset */
+  /* Scroll reset on story change — safe even if story missing */
   useEffect(() => {
-    if (!story) onBack();
-  }, [story, onBack]);
-  useEffect(() => window.scrollTo(0, 0), [storyId]);
+    try {
+      window.scrollTo(0, 0);
+    } catch {}
+  }, [storyId]);
 
-  /* Autosize the two textareas */
+  /* Autosize the two textareas — only when story exists */
   useLayoutEffect(() => {
+    if (!story) return;
     for (const el of [titleRef.current, bodyRef.current]) {
       if (!el) continue;
-      el.style.height = "0px";
-      el.style.height = `${el.scrollHeight}px`;
+      try {
+        el.style.height = "0px";
+        el.style.height = `${el.scrollHeight}px`;
+      } catch {}
     }
-  }, [story?.title, story?.content, storyId]);
+  }, [story?.title, story?.content, storyId, story]);
 
-  /* § Autosave indicator (persistence itself happens in the context) */
+  /* Autosave indicator (persistence itself happens in the context) */
   useEffect(() => {
+    if (!story) return;
     setSaveState("saving");
     const t = window.setTimeout(() => {
       setSaveState("saved");
       setSavedAt(new Date());
     }, 650);
     return () => window.clearTimeout(t);
-  }, [story?.title, story?.content, story?.categoryId]);
+  }, [story?.title, story?.content, story?.categoryId, story]);
 
   /* ⌘/Ctrl+S — reassure, don't reload */
   useEffect(() => {
@@ -66,11 +71,35 @@ export function Editor({ storyId, onBack }: EditorProps) {
     return () => document.removeEventListener("keydown", onKey);
   }, [notify]);
 
-  if (!story) return null;
+  // Route guard: show graceful fallback instead of auto-calling onBack during mount
+  // which could cause React tree unmount conflicts (white screen).
+  if (!story) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-zinc-50 dark:bg-night-950">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">Story not found</p>
+        <p className="mt-2 max-w-sm text-center text-[13px] text-zinc-600 dark:text-zinc-400">
+          This story may have been deleted or hasn&apos;t finished saving yet.
+        </p>
+        <button
+          onClick={onBack}
+          className="mt-6 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 text-[13px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300"
+        >
+          <ArrowLeft size={15} /> Back to Shelf
+        </button>
+      </div>
+    );
+  }
 
   const category = categories.find((c) => c.id === story.categoryId);
-  const words = countWords(story.content);
-  const chars = story.content.length;
+  let words = 0;
+  let chars = 0;
+  try {
+    words = countWords(story.content);
+    chars = (story.content ?? "").length;
+  } catch {
+    words = 0;
+    chars = 0;
+  }
 
   const item =
     "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[0.05]";
@@ -192,7 +221,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
                 <>
                   <MenuLabel>Story</MenuLabel>
                   <button
-                    className={`${item} ${confirmDelete ? "text-rose-300" : ""}`}
+                    className={`${item} ${confirmDelete ? "text-rose-600 dark:text-rose-300" : ""}`}
                     onClick={() => {
                       if (!confirmDelete) {
                         setConfirmDelete(true);
@@ -204,7 +233,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
                       onBack();
                     }}
                   >
-                    <Trash2 size={14} className={confirmDelete ? "text-rose-300" : "text-zinc-500"} />
+                    <Trash2 size={14} className={confirmDelete ? "text-rose-600 dark:text-rose-300" : "text-zinc-500"} />
                     {confirmDelete ? "Click again to delete" : "Delete story"}
                   </button>
                 </>
@@ -277,7 +306,7 @@ export function Editor({ storyId, onBack }: EditorProps) {
           <span className="text-zinc-700">·</span>
           <span>{readingMinutes(words)} min</span>
           <span className="hidden text-zinc-700 sm:inline">·</span>
-          <span className="hidden text-ember-300/80 sm:inline">Markdown</span>
+          <span className="hidden text-ember-600 dark:text-ember-300/80 sm:inline">Markdown</span>
         </div>
       </div>
     </div>

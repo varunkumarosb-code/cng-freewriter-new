@@ -5,6 +5,7 @@ import { Bookshelf } from "./components/Bookshelf";
 import { Editor } from "./components/Editor";
 import { SettingsModal } from "./components/SettingsModal";
 import { ToastStack } from "./components/Toast";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 type View = { name: "shelf" } | { name: "editor"; id: string };
 
@@ -43,16 +44,18 @@ function Shell() {
       />
 
       {view.name === "shelf" ? (
-        <>
+        <ErrorBoundary>
           <TopBar onNewStory={openNewStory} onOpenSettings={() => setSettingsOpen(true)} />
           <Bookshelf
             onOpenStory={openStory}
             onNewStory={openNewStory}
           />
           <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-        </>
+        </ErrorBoundary>
       ) : (
-        <Editor storyId={view.id} onBack={goToShelf} />
+        <ErrorBoundary>
+          <Editor storyId={view.id} onBack={goToShelf} />
+        </ErrorBoundary>
       )}
     </div>
   );
@@ -62,7 +65,9 @@ export default function App() {
   return (
     <LibraryProvider>
       <div className="grain" aria-hidden />
-      <Shell />
+      <ErrorBoundary>
+        <Shell />
+      </ErrorBoundary>
       <ToastStack />
     </LibraryProvider>
   );
