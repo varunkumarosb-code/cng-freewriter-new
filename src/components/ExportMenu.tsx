@@ -34,14 +34,14 @@ export function ExportMenu({ story }: ExportMenuProps) {
               close();
             }}
           >
-            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 transition group-hover:border-ember-400/30 group-hover:text-ember-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:text-ember-300">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 transition group-hover:border-ember-400/30 group-hover:text-ember-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:text-ember-300">
               <FileText size={14} />
             </span>
             <span className="min-w-0">
               <span className="block text-[13px] font-medium text-zinc-800 dark:text-zinc-200">
                 Plain Text <span className="font-mono text-[10.5px] text-zinc-500">.txt</span>
               </span>
-              <span className="mt-0.5 block text-[11.5px] leading-snug text-zinc-500">
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-zinc-600 dark:text-zinc-500">
                 Clean reading copy — Markdown styling stripped.
               </span>
             </span>
@@ -54,14 +54,14 @@ export function ExportMenu({ story }: ExportMenuProps) {
               close();
             }}
           >
-            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 transition group-hover:border-ember-400/30 group-hover:text-ember-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:text-ember-300">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 transition group-hover:border-ember-400/30 group-hover:text-ember-600 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:text-ember-300">
               <Braces size={14} />
             </span>
             <span className="min-w-0">
               <span className="block text-[13px] font-medium text-zinc-800 dark:text-zinc-200">
                 Markdown <span className="font-mono text-[10.5px] text-zinc-500">.md</span>
               </span>
-              <span className="mt-0.5 block text-[11.5px] leading-snug text-zinc-500">
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-zinc-600 dark:text-zinc-500">
                 Source with headings, emphasis &amp; byline intact.
               </span>
             </span>
@@ -69,7 +69,7 @@ export function ExportMenu({ story }: ExportMenuProps) {
 
           <MenuDivider />
           <button
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-white/[0.05] dark:hover:text-zinc-200"
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-zinc-200"
             onClick={() => {
               exportAll();
               close();
@@ -77,7 +77,7 @@ export function ExportMenu({ story }: ExportMenuProps) {
           >
             <Download size={13} className="shrink-0" />
             Full library backup
-            <span className="ml-auto font-mono text-[9.5px] uppercase tracking-wider text-ember-300/70">
+            <span className="ml-auto font-mono text-[9.5px] uppercase tracking-wider text-ember-600 dark:text-ember-300/70">
               .json
             </span>
           </button>
@@ -87,7 +87,8 @@ export function ExportMenu({ story }: ExportMenuProps) {
       {({ toggle, open }) => (
         <button
           onClick={toggle}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-ember-400/30 bg-ember-400/[0.08] px-3 text-[13px] font-semibold text-ember-300 transition hover:border-ember-400/50 hover:bg-ember-400/[0.14]"
+          aria-pressed={open}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-ember-400/30 bg-ember-400/10 px-3 text-[13px] font-semibold text-ember-700 transition hover:border-ember-400/50 hover:bg-ember-400/20 dark:border-ember-400/30 dark:bg-ember-400/[0.08] dark:text-ember-300 dark:hover:border-ember-400/50 dark:hover:bg-ember-400/[0.14]"
         >
           <Download size={15} />
           <span className="hidden sm:inline">Export</span>

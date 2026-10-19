@@ -19,6 +19,16 @@ function PocketBasePanel() {
     pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null
   );
 
+  // P7: Badge reactivity — listen to authStore changes without reload
+  useEffect(() => {
+    const unsub = pb.authStore.onChange(() => {
+      setAuthedUser(pb.authStore.isValid ? pb.authStore.model?.email || "Connected" : null);
+    });
+    return () => {
+      try { (unsub as unknown as () => void)?.(); } catch {}
+    };
+  }, []);
+
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -32,13 +42,19 @@ function PocketBasePanel() {
       await pb.collection("users").authWithPassword(email.trim(), password);
       setAuthedUser(pb.authStore.model?.email || email);
       notify("success", "Connected to PocketBase", `Logged in as ${email}`);
-      setTimeout(() => window.location.reload(), 800);
-    } catch (err: any) {
+      // No reload — TopBar and this panel react via pb.authStore.onChange
+      // Trigger a remote sync check (LibraryContext will pick up next persist)
+      try {
+        const { fetchRemoteStories } = await import("../lib/storage");
+        await fetchRemoteStories(); // warm up; LibraryContext effect will merge on next mount
+      } catch {}
+    } catch (err: unknown) {
       console.error(err);
+      const typed = err as { status?: number; message?: string };
       const msg =
-        err?.status === 0
+        typed?.status === 0
           ? "Server cold-starting (~50s on Render free). Please wait a moment and click Save again."
-          : err?.message || "Invalid credentials or collection rules issue.";
+          : typed?.message || "Invalid credentials or collection rules issue.";
       notify("error", "Connection failed", msg);
     } finally {
       setLoading(false);
@@ -59,7 +75,7 @@ function PocketBasePanel() {
           PocketBase Sync
         </h3>
         {authedUser ? (
-          <span className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
+          <span className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 size={12} /> Connected
           </span>
         ) : (
@@ -135,6 +151,67 @@ function PocketBasePanel() {
   );
 }
 
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    try {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light";
+    } catch {
+      return "dark";
+    }
+  });
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        const isDark = document.documentElement.classList.contains("dark");
+        setTheme(isDark ? "dark" : "light");
+      } catch {}
+    };
+    // Observe class changes (e.g., external toggles)
+    const obs = new MutationObserver(check);
+    try { obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] }); } catch {}
+    return () => obs.disconnect();
+  }, []);
+
+  const setDark = () => {
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("cngwriter:theme", "dark");
+    setTheme("dark");
+  };
+  const setLight = () => {
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("cngwriter:theme", "light");
+    setTheme("light");
+  };
+
+  const base = "flex-1 rounded-md text-[11.5px] font-medium transition";
+  const active = "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-white/10 dark:text-white dark:ring-white/10 font-bold";
+  const inactive = "text-zinc-600 hover:bg-zinc-200/80 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200";
+
+  return (
+    <div className="flex h-9 rounded-lg border border-zinc-200 bg-zinc-100 p-0.5 dark:border-white/10 dark:bg-white/[0.03]">
+      <button
+        type="button"
+        onClick={setDark}
+        aria-pressed={theme === "dark"}
+        data-active={theme === "dark"}
+        className={`${base} ${theme === "dark" ? active : inactive}`}
+      >
+        Dark
+      </button>
+      <button
+        type="button"
+        onClick={setLight}
+        aria-pressed={theme === "light"}
+        data-active={theme === "light"}
+        className={`${base} ${theme === "light" ? active : inactive}`}
+      >
+        Light
+      </button>
+    </div>
+  );
+}
+
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const { settings, updateSettings } = useLibrary();
 
@@ -190,28 +267,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <label className="block font-mono text-[9.5px] font-medium uppercase tracking-[0.22em] text-zinc-500">
                 Appearance
               </label>
-              <div className="flex h-9 rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 dark:border-white/10 dark:bg-white/[0.03]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    document.documentElement.classList.add("dark");
-                    localStorage.setItem("cngwriter:theme", "dark");
-                  }}
-                  className="flex-1 rounded-md text-[11.5px] font-medium text-zinc-600 transition hover:bg-zinc-200/80 dark:text-zinc-300 dark:hover:bg-white/10"
-                >
-                  Dark
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    document.documentElement.classList.remove("dark");
-                    localStorage.setItem("cngwriter:theme", "light");
-                  }}
-                  className="flex-1 rounded-md text-[11.5px] font-medium text-zinc-600 transition hover:bg-zinc-200/80 dark:text-zinc-300 dark:hover:bg-white/10"
-                >
-                  Light
-                </button>
-              </div>
+              <ThemeToggle />
             </div>
           </div>
 
@@ -225,7 +281,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           {/* Feature 1 + 2 live here */}
           <BackupPanel />
 
-          <div className="flex items-center justify-between border-t border-zinc-200 pt-4 font-mono text-[9.5px] uppercase tracking-[0.18em] text-zinc-400 dark:border-white/[0.05] dark:text-zinc-600">
+          <div className="flex items-center justify-between border-t border-zinc-200 pt-4 font-mono text-[9.5px] uppercase tracking-[0.18em] text-zinc-500 dark:border-white/[0.05] dark:text-zinc-600">
             <span>CnG Writer · v1.0</span>
             <span>backups are portable JSON</span>
           </div>
