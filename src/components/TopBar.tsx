@@ -4,8 +4,8 @@ import { ImportButton } from "./ImportButton";
 import { pb } from "../lib/pocketbase";
 
 interface TopBarProps {
-  onNewStory: () => void;
-  onOpenSettings: () => void;
+  onNewStory?: () => void;
+  onOpenSettings?: () => void;
 }
 
 /**
@@ -14,15 +14,38 @@ interface TopBarProps {
  */
 import { useEffect, useState } from "react";
 
-export function TopBar({ onNewStory, onOpenSettings }: TopBarProps) {
+export function TopBar({ onNewStory = () => {}, onOpenSettings = () => {} }: TopBarProps) {
   const { exportAll } = useLibrary();
-  const [isConnected, setIsConnected] = useState(pb.authStore.isValid);
+  const [isConnected, setIsConnected] = useState(() => {
+    try { return pb.authStore.isValid; } catch { return false; }
+  });
 
   useEffect(() => {
-    return pb.authStore.onChange(() => {
-      setIsConnected(pb.authStore.isValid);
-    });
+    let unsubscribe: unknown;
+    try {
+      unsubscribe = pb.authStore.onChange(() => {
+        try { setIsConnected(pb.authStore.isValid); } catch {}
+      });
+    } catch (err) {
+      console.error("pb.authStore.onChange failed:", err);
+    }
+    return () => {
+      try {
+        if (typeof unsubscribe === 'function') (unsubscribe as () => void)();
+      } catch {}
+    };
   }, []);
+
+  const handleNewStory = () => {
+    if (typeof onNewStory === 'function') onNewStory();
+  };
+  const handleOpenSettings = () => {
+    if (typeof onOpenSettings === 'function') onOpenSettings();
+  };
+
+  const handleExportAll = () => {
+    try { if (typeof exportAll === 'function') exportAll(); } catch {}
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-zinc-50/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-night-950/80">
@@ -42,8 +65,8 @@ export function TopBar({ onNewStory, onOpenSettings }: TopBarProps) {
           
           {/* Cloud Sync Status Indicator */}
           <button
-            onClick={onOpenSettings}
-            title={isConnected ? `Synced as ${pb.authStore.model?.email}` : "Click to connect PocketBase cloud"}
+            onClick={handleOpenSettings}
+            title={isConnected ? `Synced as ${pb.authStore.model?.email ?? 'connected'}` : "Click to connect PocketBase cloud"}
             className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-black/[0.03] px-2.5 py-1 font-mono text-[10px] transition hover:border-zinc-300 dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-white/20"
           >
             {isConnected ? (
@@ -66,7 +89,7 @@ export function TopBar({ onNewStory, onOpenSettings }: TopBarProps) {
         <div className="flex items-center gap-2">
           <ImportButton />
           <button
-            onClick={exportAll}
+            onClick={handleExportAll}
             title="Download every story, category & setting as one .json"
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-[13px] font-medium text-zinc-600 transition hover:border-ember-400/50 hover:text-ember-600 dark:border-white/10 dark:text-zinc-400 dark:hover:border-ember-400/40 dark:hover:text-ember-300"
           >
@@ -77,14 +100,14 @@ export function TopBar({ onNewStory, onOpenSettings }: TopBarProps) {
           <span className="mx-1 h-4 w-px bg-zinc-200 dark:bg-white/10" />
 
           <button
-            onClick={onNewStory}
+            onClick={handleNewStory}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-ember-400 px-3 pr-3.5 text-[13px] font-bold text-night-950 transition hover:bg-ember-300 active:scale-[0.97]"
           >
             <Plus size={15} strokeWidth={2.6} />
             <span className="hidden sm:inline">New story</span>
           </button>
           <button
-            onClick={onOpenSettings}
+            onClick={handleOpenSettings}
             aria-label="Open settings"
             title="Settings — backup, restore & preferences"
             className="grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
