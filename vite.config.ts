@@ -17,4 +17,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  esbuild: {
+    keepNames: true,
+    minifyIdentifiers: false,
+  },
+  build: {
+    target: 'es2020',
+    minify: 'esbuild',
+  }
 });

@@ -42,6 +42,22 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
     try { if (typeof onBack === 'function') onBack(); } catch {}
   }, [onBack]);
 
+  const handleBackClick = useCallback((e: React.MouseEvent) => {
+    try { e.preventDefault(); e.stopPropagation(); } catch {}
+    try {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    } catch {}
+    setTimeout(() => {
+      try {
+        if (typeof onBack === 'function') {
+          onBack();
+        }
+      } catch {}
+    }, 0);
+  }, [onBack]);
+
   /* Scroll reset on story change — safe even if story missing */
   useEffect(() => {
     try {
@@ -146,7 +162,7 @@ export function Editor({ storyId, onBack = () => {}, onUpdate = () => {}, onDele
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-4 opacity-90 transition-opacity duration-500 hover:opacity-100 sm:px-6">
           <div className="flex items-center gap-3">
             <button
-              onClick={safeOnBack}
+              onClick={handleBackClick}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-[13px] font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-zinc-100"
             >
               <ArrowLeft size={15} />
