@@ -17,4 +17,15 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    minify: false,
+    sourcemap: 'inline',
+    target: 'es2020',
+  },
+  esbuild: {
+    minifyIdentifiers: false,
+    minifySyntax: false,
+    minifyWhitespace: false,
+    keepNames: true,
+  }
 });
