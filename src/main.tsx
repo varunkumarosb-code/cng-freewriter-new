@@ -1,47 +1,44 @@
-import React from 'react';
+import React from "react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
+import { LibraryProvider } from "./state/LibraryContext";
 
-// --- ULTIMATE REACT EFFECT CLEANUP SHIELD ---
-// Intercepts all useEffect & useLayoutEffect calls app-wide (including node_modules).
-// Prevents React DOM reconciler from crashing during unmount.
-const patchReactEffect = (hookName: 'useEffect' | 'useLayoutEffect') => {
-  const originalHook = (React as any)[hookName];
-  if (typeof originalHook !== 'function') return;
-
-  (React as any)[hookName] = (effect: React.EffectCallback, deps?: React.DependencyList) => {
-    return originalHook(() => {
+// React effect shield — neutralizes non-function cleanup
+const patchReactEffect = (hookName: "useEffect" | "useLayoutEffect") => {
+  const originalHook = (React as unknown as Record<string, unknown>)[hookName] as unknown as React.EffectCallback | undefined;
+  if (typeof originalHook !== "function") return;
+  (React as unknown as Record<string, unknown>)[hookName] = (effect: React.EffectCallback, deps?: React.DependencyList) => {
+    return (originalHook as unknown as (cb: () => unknown, deps?: React.DependencyList) => unknown)(() => {
       const cleanup = effect();
-      // If cleanup is returned and it is NOT a function, neutralize it!
-      if (cleanup !== undefined && cleanup !== null && typeof cleanup !== 'function') {
-        console.warn(`[REACT SHIELD] Neutralized bad ${hookName} cleanup:`, cleanup, "Source:", effect.toString());
-        return undefined; // Force React to see undefined so it never throws "x is not a function"
+      if (cleanup !== undefined && cleanup !== null && typeof cleanup !== "function") {
+        try { console.warn(`[REACT SHIELD] Neutralized bad ${hookName} cleanup:`, cleanup); } catch {}
+        return undefined;
       }
-      return cleanup;
+      return cleanup as unknown;
     }, deps);
   };
 };
 
 try {
-  patchReactEffect('useEffect');
-  patchReactEffect('useLayoutEffect');
+  patchReactEffect("useEffect");
+  patchReactEffect("useLayoutEffect");
 } catch (e) {
-  console.error("Failed to apply React Shield:", e);
+  try { console.error("Failed to apply React Shield:", e); } catch {}
 }
 
-// Global error overlay — no more pure white screens
-window.addEventListener('error', (event) => {
-  console.error("Global UI Error:", event.error || event.message);
+window.addEventListener("error", (event) => {
+  try { console.error("Global UI Error:", event.error || event.message); } catch {}
 });
-
-window.addEventListener('unhandledrejection', (event) => {
-  console.error("Unhandled Promise Rejection:", event.reason);
+window.addEventListener("unhandledrejection", (event) => {
+  try { console.error("Unhandled Promise Rejection:", event.reason); } catch {}
 });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <LibraryProvider>
+      <App />
+    </LibraryProvider>
   </StrictMode>
 );

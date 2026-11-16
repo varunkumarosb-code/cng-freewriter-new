@@ -48,52 +48,9 @@ html {
 
 html.dark {
   color-scheme: dark;
-  background-color: #08080b;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: #fafafa;
-  color: #18181b;
+  @apply bg-zinc-50 text-zinc-900 dark:bg-night-950 dark:text-zinc-100;
   font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-.dark body,
-html.dark body {
-  background-color: #08080b;
-  color: #d4d4d8;
-}
-
-::selection {
-  background: rgba(229, 177, 104, 0.25);
-  color: #fafafa;
-}
-
-input,
-textarea {
-  caret-color: var(--color-ember-400);
-}
-
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: #23232d;
-  border-radius: 8px;
-  border: 3px solid #08080b;
-}
-::-webkit-scrollbar-thumb:hover { background: #30303c; }
-
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-
-.grain {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  pointer-events: none;
-  opacity: 0.032;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
