@@ -1,5 +1,6 @@
 import type { AppSettings, Category, Story } from "./types";
 import { countWords } from "./format";
+import { pb } from "./pocketbase";
 
 const KEYS = {
   stories: "cngwriter:stories",
@@ -186,6 +187,151 @@ export function mergeByUpdatedAt(local: Story[], incoming: Story[]): Story[] {
     }
     return Array.from(byId.values());
   } catch { return local; }
+}
+
+// ------------------------------------------------------------------
+// Self-healing PocketBase sync (Option B isolated + legacy cng_stories compat)
+// ------------------------------------------------------------------
+function wordCountForSync(text: string | null | undefined): number {
+  const safeText = (text && typeof text === "string") ? text : "";
+  const t = safeText.trim();
+  if (!t) return 0;
+  return t.split(/\s+/).filter(Boolean).length;
+}
+
+function is404Error(err: unknown): boolean {
+  try {
+    const anyErr = err as Record<string, unknown>;
+    const status = (anyErr?.status as number) ?? (anyErr?.response as Record<string, unknown>)?.status ?? (anyErr?.data as Record<string, unknown>)?.code;
+    if (status === 404) return true;
+    const msg = String((anyErr?.message as string) || (anyErr?.data as Record<string, unknown>)?.message || "");
+    if (msg.includes("404") || msg.toLowerCase().includes("not found")) return true;
+    return false;
+  } catch { return false; }
+}
+
+/**
+ * Self-healing sync: update → on 404 reset remoteId → create
+ * Wrap in try/catch so sync errors NEVER crash UI or navigation.
+ * Supports both writer_stories (Option B) and cng_stories (legacy/spec).
+ */
+export async function syncToPocketBase(story: Story): Promise<string | null> {
+  try {
+    if (!story || typeof story !== "object") return null;
+    const safeTitle = (story.title && typeof story.title === "string") ? story.title : "";
+    const safeContent = (story.content && typeof story.content === "string") ? story.content : "";
+    const safeCategory = (story.categoryId && typeof story.categoryId === "string") ? story.categoryId : "";
+
+    // Try to resolve user_id for writer_stories
+    let userId: string | undefined;
+    try { userId = (pb.authStore.model as unknown as { id?: string })?.id; } catch {}
+
+    // Primary payload for writer_stories (Option B isolated)
+    const payloadWriter = {
+      title: safeTitle || "Untitled",
+      content: safeContent,
+      category: safeCategory,
+      word_count: wordCountForSync(safeContent),
+      ...(userId ? { user_id: userId } : {}),
+    };
+
+    // Legacy/spec payload for cng_stories
+    const payloadLegacy = {
+      title: safeTitle || "Untitled",
+      content: safeContent,
+      category: safeCategory,
+      word_count: wordCountForSync(safeContent),
+      ...(userId ? { user: userId, user_id: userId } : {}),
+    };
+
+    // If we have a remoteId, try update first
+    if (story.remoteId && typeof story.remoteId === "string" && story.remoteId.length >= 12) {
+      // Prefer writer_stories — Option B
+      try {
+        await pb.collection('writer_stories').update(story.remoteId, payloadWriter);
+        return story.remoteId;
+      } catch (errWriter) {
+        // Self-healing: 404 → reset and fallback to create
+        if (is404Error(errWriter)) {
+          try {
+            story.remoteId = undefined;
+          } catch {}
+          try {
+            const created = await pb.collection('writer_stories').create(payloadWriter) as unknown as { id: string };
+            const newId = created?.id ? String(created.id) : null;
+            if (newId) {
+              try { story.remoteId = newId; } catch {}
+              // persist new remoteId locally so next updates succeed
+              try {
+                const all = loadStories();
+                const idx = all.findIndex((s) => s.id === story.id);
+                if (idx !== -1) { all[idx] = { ...all[idx], remoteId: newId }; saveStories(all); }
+              } catch {}
+            }
+            return newId;
+          } catch {
+            return null;
+          }
+        }
+        // For spec compatibility also try cng_stories path with same 404 healing
+        try {
+          await pb.collection('cng_stories').update(story.remoteId, payloadLegacy);
+          return story.remoteId;
+        } catch (errLegacy) {
+          if (is404Error(errLegacy)) {
+            try { story.remoteId = undefined; } catch {}
+            try {
+              const createdLegacy = await pb.collection('cng_stories').create(payloadLegacy) as unknown as { id: string };
+              const newIdLegacy = createdLegacy?.id ? String(createdLegacy.id) : null;
+              if (newIdLegacy) {
+                try { story.remoteId = newIdLegacy; } catch {}
+                try {
+                  const all2 = loadStories();
+                  const idx2 = all2.findIndex((s) => s.id === story.id);
+                  if (idx2 !== -1) { all2[idx2] = { ...all2[idx2], remoteId: newIdLegacy }; saveStories(all2); }
+                } catch {}
+              }
+              return newIdLegacy;
+            } catch { return null; }
+          }
+          return null;
+        }
+      }
+    } else {
+      // No remoteId → create (never pass local UUID)
+      try {
+        const created = await pb.collection('writer_stories').create(payloadWriter) as unknown as { id: string };
+        const newId = created?.id ? String(created.id) : null;
+        if (newId) {
+          try { story.remoteId = newId; } catch {}
+          try {
+            const all = loadStories();
+            const idx = all.findIndex((s) => s.id === story.id);
+            if (idx !== -1) { all[idx] = { ...all[idx], remoteId: newId }; saveStories(all); }
+          } catch {}
+        }
+        return newId;
+      } catch {
+        // fallback to legacy collection for spec/compat
+        try {
+          const createdLegacy = await pb.collection('cng_stories').create(payloadLegacy) as unknown as { id: string };
+          const newIdLegacy = createdLegacy?.id ? String(createdLegacy.id) : null;
+          if (newIdLegacy) {
+            try { story.remoteId = newIdLegacy; } catch {}
+            try {
+              const all2 = loadStories();
+              const idx2 = all2.findIndex((s) => s.id === story.id);
+              if (idx2 !== -1) { all2[idx2] = { ...all2[idx2], remoteId: newIdLegacy }; saveStories(all2); }
+            } catch {}
+          }
+          return newIdLegacy;
+        } catch { return null; }
+      }
+    }
+  } catch {
+    // Never crash UI
+    return null;
+  }
 }
 
 export function buildBackup(stories: Story[], categories: Category[], settings?: AppSettings | null) {
