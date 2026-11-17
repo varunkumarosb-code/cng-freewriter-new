@@ -109,14 +109,44 @@ export async function syncOneToPocketBase(story: Story): Promise<string | null> 
     };
 
     // Rule 4 & 5: only update if remoteId is valid (15-char PB id)
+    // Self-healing: on 404 reset remoteId and fallback to create, never crash UI
     if (story.remoteId && typeof story.remoteId === "string" && story.remoteId.length >= 12) {
       try {
         await pb.collection(WRITER_STORIES).update(story.remoteId, payload);
         return story.remoteId;
-      } catch {
-        // if update fails (deleted remotely), create anew — still never send local id
-        const created = await pb.collection(WRITER_STORIES).create(payload) as unknown as { id: string };
-        return created?.id ?? null;
+      } catch (err) {
+        // 404 self-healing
+        try {
+          const anyErr = err as Record<string, unknown>;
+          const is404 = (anyErr?.status === 404) || String((anyErr as unknown as { message?: string })?.message || "").includes("404") || String((anyErr?.data as unknown as string) || "").includes("not found");
+          if (is404) {
+            try { story.remoteId = undefined; } catch {}
+          }
+        } catch {}
+        try {
+          const created = await pb.collection(WRITER_STORIES).create(payload) as unknown as { id: string };
+          const newId = created?.id ? String(created.id) : null;
+          if (newId) { try { story.remoteId = newId; } catch {} }
+          return newId ?? null;
+        } catch {
+          // also try legacy cng_stories for spec compat
+          try {
+            await pb.collection('cng_stories').update(story.remoteId || "", payload);
+            return story.remoteId || null;
+          } catch (err2) {
+            try {
+              const any2 = err2 as Record<string, unknown>;
+              const is404b = (any2?.status === 404) || String((any2 as unknown as { message?: string })?.message || "").includes("404");
+              if (is404b) { try { story.remoteId = undefined; } catch {} }
+            } catch {}
+            try {
+              const created2 = await pb.collection('cng_stories').create(payload) as unknown as { id: string };
+              const newId2 = created2?.id ? String(created2.id) : null;
+              if (newId2) { try { story.remoteId = newId2; } catch {} }
+              return newId2 ?? null;
+            } catch { return null; }
+          }
+        }
       }
     } else {
       // Create — NEVER include local id in payload
