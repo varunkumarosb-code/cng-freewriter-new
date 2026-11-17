@@ -1,22 +1,36 @@
-/** CnG Writer domain models — Option B isolated architecture */
+export interface Story {
+  id: string;
+  title: string;
+  content: string;
+  categoryId: string;
+  createdAt: string;
+  updatedAt: string;
+  remoteId?: string;
+}
 
 export interface Category {
   id: string;
   name: string;
-  color: string;
-}
-
-export interface Story {
-  id: string; // local crypto.randomUUID()
-  remoteId?: string; // PocketBase 15-char auto-generated id from writer_stories
-  title: string;
-  content: string;
-  categoryId: string; // stores Category.id or "" for Unshelved; synced to writer_stories.category (TEXT)
-  createdAt: string;
-  updatedAt: string;
+  order: number;
 }
 
 export interface AppSettings {
   writerName: string;
   lastBackupAt: string | null;
+}
+
+export interface BackupData {
+  version: 1;
+  exportedAt: string;
+  settings?: AppSettings;
+  categories: Category[];
+  stories: Story[];
+}
+
+export type Theme = "light" | "dark";
+
+export interface ToastItem {
+  id: string;
+  message: string;
+  tone: "ok" | "error" | "info";
 }
