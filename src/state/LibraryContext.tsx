@@ -63,20 +63,29 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     try { return (pb.authStore.model as unknown as { email?: string })?.email ?? null; } catch { return null; }
   });
 
-  // persist
+  // persist — correct: never return setTimeout directly
   useEffect(() => {
-    let t: number | null = null;
-    try { t = window.setTimeout(() => { try { saveStories(stories); } catch {} }, 180); } catch {}
-    return () => { try { if (t !== null) window.clearTimeout(t); } catch {} };
+    const timer = window.setTimeout(() => {
+      try { saveStories(stories); } catch {}
+    }, 180);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [stories]);
 
   useEffect(() => {
-    let t: number | null = null;
-    try { t = window.setTimeout(() => { try { saveCategories(categories); } catch {} }, 180); } catch {}
-    return () => { try { if (t !== null) window.clearTimeout(t); } catch {} };
+    const timer = window.setTimeout(() => {
+      try { saveCategories(categories); } catch {}
+    }, 180);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [categories]);
 
-  useEffect(() => { try { saveSettings(settings); } catch {} return () => {}; }, [settings]);
+  useEffect(() => {
+    try { saveSettings(settings); } catch {}
+    return () => {};
+  }, [settings]);
 
   useEffect(() => {
     try {
@@ -87,15 +96,14 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     return () => {};
   }, [theme]);
 
-  // auth listener for badge
+  // auth listener for badge — safely wrapped
   useEffect(() => {
-    let unsub: unknown;
-    try {
-      unsub = pb.authStore.onChange(() => {
-        try { setAuthEmail((pb.authStore.model as unknown as { email?: string })?.email ?? null); } catch {}
-      });
-    } catch {}
-    return () => { try { if (typeof unsub === "function") (unsub as () => void)(); } catch {} };
+    const unsubscribe = pb.authStore.onChange(() => {
+      try { setAuthEmail((pb.authStore.model as unknown as { email?: string })?.email ?? null); } catch {}
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, []);
 
   const toast = useCallback((msg: string, tone: ToastItem["tone"] = "ok") => {
@@ -286,15 +294,19 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const didInitialSync = useRef(false);
   useEffect(() => {
-    if (didInitialSync.current) return;
+    if (didInitialSync.current) {
+      return undefined;
+    }
     didInitialSync.current = true;
-    try {
-      if (pb.authStore.isValid) {
-        const t = window.setTimeout(() => { void refreshFromCloud(); }, 700);
-        return () => { try { window.clearTimeout(t); } catch {} };
-      }
-    } catch {}
-    return () => {};
+    if (pb.authStore.isValid) {
+      const timer = window.setTimeout(() => {
+        void refreshFromCloud();
+      }, 700);
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+    return undefined;
   }, [refreshFromCloud]);
 
   const value = useMemo<LibraryValue>(() => ({

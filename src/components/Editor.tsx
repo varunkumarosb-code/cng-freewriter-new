@@ -32,8 +32,15 @@ export function Editor({ storyId, onBack }: Props) {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const titleTaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // REQUIRED: scroll to top on story change — explicit {} and no return value
   useEffect(() => {
-    if (!story || typeof story !== "object") return;
+    window.scrollTo(0, 0);
+  }, [storyId]);
+
+  useEffect(() => {
+    if (!story || typeof story !== "object") {
+      return undefined;
+    }
     const safeId = (story.id && typeof story.id === "string") ? story.id : "";
     if (idRef.current !== safeId) {
       idRef.current = safeId;
@@ -51,9 +58,13 @@ export function Editor({ storyId, onBack }: Props) {
 
   useEffect(() => {
     const s = story;
-    if (!s || typeof s !== "object") return;
+    if (!s || typeof s !== "object") {
+      return undefined;
+    }
     const safeId = (s.id && typeof s.id === "string") ? s.id : "";
-    if (safeId !== idRef.current) return;
+    if (safeId !== idRef.current) {
+      return undefined;
+    }
     const st = (s.title && typeof s.title === "string") ? s.title : "";
     const sc = (s.content && typeof s.content === "string") ? s.content : "";
     if (st !== draftTitleRef.current || sc !== draftContentRef.current) {
@@ -74,8 +85,12 @@ export function Editor({ storyId, onBack }: Props) {
         if (menuRef.current && target && !menuRef.current.contains(target)) setExportOpen(false);
       } catch {}
     };
-    if (exportOpen) document.addEventListener("mousedown", handleOutside);
-    return () => { try { document.removeEventListener("mousedown", handleOutside); } catch {} };
+    if (exportOpen) {
+      document.addEventListener("mousedown", handleOutside);
+    }
+    return () => {
+      try { document.removeEventListener("mousedown", handleOutside); } catch {}
+    };
   }, [exportOpen]);
 
   useEffect(() => {
@@ -89,8 +104,16 @@ export function Editor({ storyId, onBack }: Props) {
     if (!el) return;
     try { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; } catch {}
   };
-  useEffect(() => { autoResize(taRef.current); return () => {}; }, [localContent]);
-  useEffect(() => { autoResize(titleTaRef.current); return () => {}; }, [localTitle]);
+
+  useEffect(() => {
+    autoResize(taRef.current);
+    return () => {};
+  }, [localContent]);
+
+  useEffect(() => {
+    autoResize(titleTaRef.current);
+    return () => {};
+  }, [localTitle]);
 
   function scheduleSave(nextTitle: string, nextContent: string) {
     const safeTitle = (nextTitle && typeof nextTitle === "string") ? nextTitle : "";
@@ -99,6 +122,7 @@ export function Editor({ storyId, onBack }: Props) {
     if (!id) return;
     try { setSaveState("saving"); } catch {}
     if (timerRef.current !== null) { try { window.clearTimeout(timerRef.current); } catch {} timerRef.current = null; }
+    // Correct: never return setTimeout directly; store timer and return clearTimeout in cleanup
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;
       try { updateStory(id, { title: safeTitle, content: safeContent }); } catch {}

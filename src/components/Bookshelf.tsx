@@ -11,7 +11,10 @@ export function Bookshelf({ onSelectStory }: Props) {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState("All");
 
-  useEffect(() => { try { document.documentElement.style.scrollBehavior = ""; } catch {} return () => {}; }, []);
+  useEffect(() => {
+    try { document.documentElement.style.scrollBehavior = ""; } catch {}
+    return () => {};
+  }, []);
 
   const shelves = useMemo(() => {
     const custom = categories.map((c) => c.name);

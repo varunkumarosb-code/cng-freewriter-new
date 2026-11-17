@@ -16,9 +16,17 @@ export function SettingsModal({ open, onClose }: Props) {
   const [newCategory, setNewCategory] = useState("");
   const { addCategory } = useLibrary();
 
-  useEffect(() => { if (!open) return; try { setPbUrlInput(getPbUrl()); } catch {} return () => {}; }, [open]);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return undefined;
+    }
+    try { setPbUrlInput(getPbUrl()); } catch {}
+    return () => {};
+  }, [open]);
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
     const onKey = (e: KeyboardEvent) => { try { if (e.key === "Escape") onClose(); } catch {} };
     document.addEventListener("keydown", onKey);
     return () => { try { document.removeEventListener("keydown", onKey); } catch {} };
