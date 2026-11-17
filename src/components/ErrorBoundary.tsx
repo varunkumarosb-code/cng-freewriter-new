@@ -17,11 +17,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       const msg = (this.state.error && typeof (this.state.error as Error).message === "string") ? (this.state.error as Error).message : String(this.state.error || "Unknown error");
       return (
-        <div className="mx-auto max-w-2xl rounded-2xl border border-red-200 bg-white p-6 shadow-sm dark:border-red-900/30 dark:bg-zinc-900 bg-zinc-50 dark:bg-night-950">
-          <h2 className="font-serif text-lg font-semibold text-zinc-900 dark:text-zinc-100">Something went wrong</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">{msg}</p>
-          <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-zinc-950 p-3 font-mono text-xs text-zinc-300 dark:bg-black/50">{this.state.stack || "No stack"}</pre>
-          <button onClick={() => { try { this.setState({ hasError: false, error: null }); } catch {} }} className="mt-4 inline-flex h-9 items-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Try again</button>
+        <div className="mx-auto max-w-2xl rounded-2xl border border-red-200 dark:border-red-800 bg-white dark:bg-zinc-900 p-6 shadow-sm transition-all duration-300">
+          <h2 className="font-serif text-lg font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300">Something went wrong</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400 transition-all duration-300">{msg}</p>
+          <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-[#0d0d0d] p-3 font-mono text-xs text-zinc-100">{this.state.stack || "No stack"}</pre>
+          <button onClick={() => { try { this.setState({ hasError: false, error: null }); } catch {} }} className="mt-4 inline-flex h-9 items-center rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 text-sm font-medium text-white dark:text-zinc-900 transition-all duration-300">Try again</button>
         </div>
       );
     }
