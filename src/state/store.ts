@@ -11,7 +11,6 @@ import {
   saveTheme,
 } from "../lib/storage";
 import { buildBackup, parseBackup } from "../lib/backup";
-import { deleteRemoteStory, fetchRemoteStories, pb, queueSyncToPB } from "../lib/pocketbase";
 
 export type Listener = () => void;
 
@@ -23,19 +22,18 @@ class Store {
   toasts: ToastItem[] = [];
   activeStoryId: string | null = null;
   syncing: boolean = false;
-  authEmail: string | null = (pb.authStore.model as unknown as { email?: string })?.email ?? null;
+  authEmail: string | null = null;
 
   private listeners: Set<Listener> = new Set();
   private saveTimer: number | null = null;
 
   constructor() {
-    pb.authStore.onChange(() => {
-      this.authEmail = (pb.authStore.model as unknown as { email?: string })?.email ?? null;
-      this.notify();
-    });
-    if (pb.authStore.isValid) {
-      setTimeout(() => void this.refreshFromCloud(), 600);
-    }
+    // Pure local-first: no cloud auth listeners
+    const saved = this.theme;
+    try {
+      if (saved === "dark") document.documentElement.classList.add("dark");
+      else document.documentElement.classList.remove("dark");
+    } catch {}
   }
 
   subscribe(listener: Listener): () => void {
@@ -108,36 +106,24 @@ class Store {
 
   updateStory(id: string, patch: Partial<Story>) {
     const now = new Date().toISOString();
-    let updated: Story | null = null;
     this.stories = this.stories.map((s) => {
       if (s.id !== id) return s;
-      updated = {
+      return {
         ...s,
         ...patch,
         updatedAt: now,
       };
-      return updated;
     });
     this.schedulePersist();
-    if (updated) {
-      queueSyncToPB(updated, (localId, remoteId) => {
-        this.stories = this.stories.map((s) => (s.id === localId ? { ...s, remoteId } : s));
-        this.schedulePersist();
-        this.notify();
-      });
-    }
     this.notify();
   }
 
   deleteStory(id: string) {
-    const found = this.stories.find((s) => s.id === id);
-    const remoteId = found?.remoteId;
     this.stories = this.stories.filter((s) => s.id !== id);
     if (this.activeStoryId === id) this.activeStoryId = null;
     this.schedulePersist();
     this.toast("Story deleted", "ok");
     this.notify();
-    if (remoteId) void deleteRemoteStory(remoteId);
   }
 
   addCategory(name: string): Category | null {
@@ -189,34 +175,18 @@ class Store {
     return true;
   }
 
-  async login(email: string, pass: string) {
-    const auth = await pb.collection("writer_users").authWithPassword(email.trim(), pass);
-    if (auth && auth.token) localStorage.setItem("cngwriter:pb_token", auth.token);
-    this.toast("Signed in to PocketBase", "ok");
-    void this.refreshFromCloud();
+  // Kept as no-ops for API compat (local-first white-label)
+  async login(_email: string, _pass: string) {
+    this.toast("Local-first mode — no sign-in required", "info");
   }
 
   logout() {
-    pb.authStore.clear();
-    localStorage.removeItem("cngwriter:pb_token");
-    this.toast("Signed out", "ok");
+    this.toast("Local Sanctuary — 100% Private", "info");
     this.notify();
   }
 
   async refreshFromCloud() {
-    if (!pb.authStore.isValid) return;
-    this.syncing = true;
-    this.notify();
-    try {
-      const remote = await fetchRemoteStories();
-      if (remote.length > 0) {
-        this.stories = mergeByUpdatedAt(this.stories, remote);
-        this.schedulePersist();
-      }
-    } finally {
-      this.syncing = false;
-      this.notify();
-    }
+    return;
   }
 }
 

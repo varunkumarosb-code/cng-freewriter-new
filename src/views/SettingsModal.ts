@@ -8,68 +8,59 @@ export function openSettingsModal() {
   backdrop.id = "settings-modal-backdrop";
   backdrop.className = "fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4";
 
-  const isAuthed = !!store.authEmail;
-
   backdrop.innerHTML = `
     <div class="relative w-full max-w-md rounded-2xl border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-nordic-borderLight dark:border-nordic-borderDark">
-        <h3 class="font-serif text-lg font-semibold text-nordic-textLight dark:text-nordic-textDark">Settings & Cloud</h3>
+        <h3 class="font-serif text-lg font-semibold text-nordic-textLight dark:text-nordic-textDark">Library Settings & Backup</h3>
         <button id="modal-close" class="text-nordic-mutedLight hover:text-nordic-textLight dark:hover:text-nordic-textDark text-lg font-mono">✕</button>
       </div>
 
-      <!-- Cloud Sync Section -->
-      <div class="mt-4">
-        <h4 class="font-mono text-[11px] font-semibold uppercase tracking-wider text-nordic-mutedLight dark:text-nordic-mutedDark">PocketBase Cloud</h4>
-        <p class="mt-1 text-xs text-nordic-mutedLight dark:text-nordic-mutedDark">Isolated collection: <code class="font-mono text-nordic-accentLight dark:text-nordic-accentDark">writer_users</code> / <code class="font-mono text-nordic-accentLight dark:text-nordic-accentDark">cng_stories</code></p>
-
-        ${isAuthed ? `
-          <div class="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
-            <p class="text-xs text-emerald-800 dark:text-emerald-300 font-medium">Signed in as <strong>${store.authEmail}</strong></p>
-            <button id="btn-logout" class="mt-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:underline">Sign out</button>
-          </div>
-        ` : `
-          <form id="form-login" class="mt-3 space-y-2">
-            <input id="login-email" type="email" placeholder="author@example.com" required class="w-full rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark px-3 py-2 text-xs text-nordic-textLight dark:text-nordic-textDark outline-none" />
-            <input id="login-pass" type="password" placeholder="Password" required class="w-full rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark px-3 py-2 text-xs text-nordic-textLight dark:text-nordic-textDark outline-none" />
-            <button type="submit" class="w-full rounded-lg bg-nordic-accentLight dark:bg-nordic-accentDark py-2 text-xs font-bold text-white dark:text-nordic-bgDark hover:opacity-90">Sign in to PocketBase</button>
-          </form>
-        `}
+      <!-- Writer Name / Local Sanctuary Info -->
+      <div class="mt-5">
+        <h4 class="font-mono text-[11px] font-semibold uppercase tracking-wider text-nordic-mutedLight dark:text-nordic-mutedDark">Writer Profile</h4>
+        <p class="mt-1 text-xs text-nordic-mutedLight dark:text-nordic-mutedDark">Local Sanctuary · 100% Private on this device</p>
+        <label class="mt-3 block text-xs font-medium text-nordic-mutedLight dark:text-nordic-mutedDark">Writer Name</label>
+        <input id="input-writer-name" type="text" value="${store.settings.writerName || "Writer"}" placeholder="Writer" class="mt-1 w-full rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark px-3 py-2 text-sm text-nordic-textLight dark:text-nordic-textDark outline-none placeholder:text-nordic-mutedLight focus:border-nordic-accentLight dark:focus:border-nordic-accentDark" />
+        <p class="mt-2 text-[11px] font-mono text-nordic-mutedLight dark:text-nordic-mutedDark">Displayed in exports · stored locally only</p>
       </div>
 
-      <!-- JSON Backup Section -->
-      <div class="mt-6 border-t border-nordic-borderLight dark:border-nordic-borderDark pt-4">
+      <!-- Library Backup Section -->
+      <div class="mt-6 border-t border-nordic-borderLight dark:border-nordic-borderDark pt-5">
         <h4 class="font-mono text-[11px] font-semibold uppercase tracking-wider text-nordic-mutedLight dark:text-nordic-mutedDark">Library Backup</h4>
-        <div class="mt-3 flex gap-2">
-          <button id="modal-export" class="flex-1 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark py-2 text-xs font-medium text-nordic-textLight dark:text-nordic-textDark hover:border-nordic-accentLight">Export JSON</button>
-          <button id="modal-import" class="flex-1 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark py-2 text-xs font-medium text-nordic-textLight dark:text-nordic-textDark hover:border-nordic-accentLight">Import JSON</button>
+        <p class="mt-1 text-xs leading-5 text-nordic-mutedLight dark:text-nordic-mutedDark">Manual JSON backup — instant offline save, full control. Export your entire library or import a previous backup.</p>
+        <div class="mt-4 flex gap-2">
+          <button id="modal-export" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark py-2.5 text-xs font-semibold text-nordic-textLight dark:text-nordic-textDark hover:border-nordic-accentLight dark:hover:border-nordic-accentDark hover:text-nordic-accentLight dark:hover:text-nordic-accentDark transition-all">Export JSON</button>
+          <button id="modal-import" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-nordic-accentLight dark:bg-nordic-accentDark py-2.5 text-xs font-bold text-white dark:text-nordic-bgDark hover:opacity-90 transition-all">Import JSON</button>
         </div>
+        <p class="mt-3 text-center font-mono text-[10px] text-nordic-mutedLight dark:text-nordic-mutedDark">Offline-first · No cloud · No tracking</p>
       </div>
     </div>
   `;
 
   document.body.appendChild(backdrop);
 
+  const writerInput = backdrop.querySelector("#input-writer-name") as HTMLInputElement;
+  writerInput?.addEventListener("change", () => {
+    const val = writerInput.value.trim() || "Writer";
+    store.settings.writerName = val;
+    // Persist via store's schedulePersist — trigger via dummy update
+    // Use direct save to ensure immediate persistence
+    try {
+      const current = store.settings;
+      // Trigger persist by touching settings through store API
+      (store as unknown as { schedulePersist: () => void }).schedulePersist?.();
+      // Fallback direct localStorage
+      localStorage.setItem("cngwriter:settings", JSON.stringify(current));
+    } catch {}
+  });
+  writerInput?.addEventListener("input", () => {
+    const val = writerInput.value;
+    store.settings.writerName = val || "Writer";
+  });
+
   backdrop.querySelector("#modal-close")?.addEventListener("click", () => backdrop.remove());
   backdrop.addEventListener("click", (e) => {
     if (e.target === backdrop) backdrop.remove();
-  });
-
-  backdrop.querySelector("#btn-logout")?.addEventListener("click", () => {
-    store.logout();
-    backdrop.remove();
-  });
-
-  const loginForm = backdrop.querySelector("#form-login") as HTMLFormElement;
-  loginForm?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = (backdrop.querySelector("#login-email") as HTMLInputElement).value;
-    const pass = (backdrop.querySelector("#login-pass") as HTMLInputElement).value;
-    try {
-      await store.login(email, pass);
-      backdrop.remove();
-    } catch (err) {
-      alert("Login failed: " + (err instanceof Error ? err.message : String(err)));
-    }
   });
 
   backdrop.querySelector("#modal-export")?.addEventListener("click", () => store.exportAllBackup());

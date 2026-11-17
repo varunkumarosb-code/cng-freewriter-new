@@ -75,7 +75,7 @@ export function renderBookshelf(): HTMLElement {
           return `
             <div data-story-id="${s.id}" class="story-card group relative flex min-h-[200px] cursor-pointer flex-col rounded-2xl border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark px-5 pb-4 pt-5 text-left transition-all duration-200 hover:border-nordic-accentLight dark:hover:border-nordic-accentDark hover:shadow-md hover:-translate-y-0.5">
               <span class="line-clamp-2 pr-2 font-serif text-[18px] font-semibold leading-6 text-nordic-textLight dark:text-nordic-textDark">${s.title || "Untitled Story"}</span>
-              <span class="mt-1 font-mono text-[10px] uppercase tracking-widest text-nordic-accentLight dark:text-nordic-accentDark">${shelf} ${s.remoteId ? "· Cloud" : ""}</span>
+              <span class="mt-1 font-mono text-[10px] uppercase tracking-widest text-nordic-accentLight dark:text-nordic-accentDark">${shelf}</span>
               <p class="mt-3 line-clamp-3 text-[13px] leading-6 text-nordic-mutedLight dark:text-nordic-mutedDark">${(s.content || "No content yet. Tap to begin writing...").slice(0, 200)}</p>
               <div class="mt-auto flex items-center justify-between pt-4 font-mono text-[11px] text-nordic-mutedLight dark:text-nordic-mutedDark">
                 <span>${words.toLocaleString()} words</span>

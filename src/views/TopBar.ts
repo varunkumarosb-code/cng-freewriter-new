@@ -2,9 +2,6 @@ import { store } from "../state/store";
 import { openSettingsModal } from "./SettingsModal";
 
 export function renderTopBar(): HTMLElement {
-  const isAuthed = !!store.authEmail;
-  const isSyncing = store.syncing;
-
   const header = document.createElement("header");
   header.className = "sticky top-0 z-40 border-b border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight/80 dark:bg-nordic-bgDark/80 backdrop-blur-xl transition-colors duration-200";
 
@@ -16,15 +13,7 @@ export function renderTopBar(): HTMLElement {
         </span>
         <span class="font-serif text-[22px] font-semibold italic leading-none text-nordic-textLight dark:text-nordic-textDark">CnG</span>
         <span class="hidden font-mono text-[10px] font-medium uppercase tracking-[0.32em] text-nordic-mutedLight dark:text-nordic-mutedDark sm:inline">Writer</span>
-        <span class="ml-2 inline-flex items-center gap-1.5 rounded-full border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark px-2.5 py-1 font-mono text-[10px]">
-          ${isAuthed ? `
-            <span class="h-1.5 w-1.5 rounded-full ${isSyncing ? "bg-amber-500 animate-spin" : "bg-emerald-500 animate-pulse"}"></span>
-            <span class="text-nordic-textLight dark:text-nordic-textDark">${isSyncing ? "Syncing..." : "Live Cloud"}</span>
-          ` : `
-            <span class="h-1.5 w-1.5 rounded-full bg-nordic-mutedLight"></span>
-            <span class="text-nordic-mutedLight dark:text-nordic-mutedDark">Local Only</span>
-          `}
-        </span>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark px-2.5 py-1 font-mono text-[10px] text-nordic-mutedLight dark:text-nordic-mutedDark"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Private & Local</span>
       </div>
 
       <div class="flex items-center gap-2">
