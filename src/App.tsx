@@ -14,7 +14,6 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const hiddenImportRef = useRef<HTMLInputElement | null>(null);
 
-  // Theme → html.dark pairing
   useEffect(() => {
     try {
       const root = document.documentElement;
@@ -71,9 +70,8 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-night-950 dark:text-zinc-100 bg-zinc-50 dark:bg-night-950">
+      <div className="min-h-screen bg-[#fcfaf7] text-zinc-900 dark:bg-[#0d0d0d] dark:text-zinc-100 transition-all duration-300">
         {isEditor ? (
-          // Editor view — no TopBar bookshelf chrome, only Editor's own fixed nav
           <ErrorBoundary>
             <Editor storyId={activeStoryId} onBack={handleBack} />
           </ErrorBoundary>
@@ -83,9 +81,9 @@ export default function App() {
               <TopBar onNewStory={handleCreateStory} onOpenSettings={() => { try { setSettingsOpen(true); } catch {} }} onImportClick={handleImportAllClick} />
             </ErrorBoundary>
 
-            <div className="border-b border-zinc-200 bg-white/60 py-2 text-center font-mono text-[11px] text-zinc-500 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-zinc-400 bg-zinc-50 dark:bg-night-950">
+            <div className="border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#0d0d0d]/50 backdrop-blur-sm py-2.5 text-center font-mono text-[11px] text-zinc-500 dark:text-zinc-400 transition-all duration-300">
               {stories.length} stories · {wordTotal.toLocaleString()} words — theme{" "}
-              <button onClick={() => { try { const cur = document.documentElement.classList.contains("dark") ? "light" : "dark"; setTheme(cur as "light" | "dark"); } catch {} }} className="underline decoration-zinc-300 underline-offset-4 dark:decoration-white/30">toggle</button>
+              <button onClick={() => { try { const cur = document.documentElement.classList.contains("dark") ? "light" : "dark"; setTheme(cur as "light" | "dark"); } catch {} }} className="underline decoration-zinc-300 dark:decoration-zinc-600 underline-offset-4 hover:text-amber-600 dark:hover:text-amber-400 transition-all duration-300">toggle</button>
             </div>
 
             <ErrorBoundary>
@@ -97,10 +95,9 @@ export default function App() {
         <SettingsModal open={settingsOpen} onClose={() => { try { setSettingsOpen(false); } catch {} }} />
         <Toast />
 
-        {/* hidden global import for TopBar */}
         <input ref={hiddenImportRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportFile} />
 
-        <footer className="mx-auto max-w-6xl px-5 py-8 text-center font-mono text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-50 dark:bg-night-950">CnG Writer · local-first · PocketBase optional (isolated writer_users / writer_stories)</footer>
+        <footer className="mx-auto max-w-6xl px-5 py-8 text-center font-mono text-[11px] text-zinc-500 dark:text-zinc-400 bg-[#fcfaf7] dark:bg-[#0d0d0d] transition-all duration-300">CnG Writer · local-first · PocketBase optional (isolated writer_users / writer_stories)</footer>
       </div>
     </ErrorBoundary>
   );

@@ -77,77 +77,79 @@ export function SettingsModal({ open, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm bg-zinc-50 dark:bg-night-950" onClick={() => { try { onClose(); } catch {} }}>
-      <div onClick={(e) => { try { e.stopPropagation(); } catch {} }} className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-zinc-900 bg-zinc-50 dark:bg-night-950">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm transition-all duration-300" onClick={() => { try { onClose(); } catch {} }}>
+      <div onClick={(e) => { try { e.stopPropagation(); } catch {} }} className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xl transition-all duration-300">
         <div className="flex items-center justify-between">
-          <h2 className="font-serif text-lg font-semibold text-zinc-900 dark:text-zinc-100">Settings</h2>
-          <button onClick={() => { try { onClose(); } catch {} }} className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 bg-zinc-50 dark:bg-night-950">✕</button>
+          <h2 className="font-serif text-lg font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300">Settings</h2>
+          <button onClick={() => { try { onClose(); } catch {} }} className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-all duration-300">✕</button>
         </div>
 
-        <section className="mt-5 rounded-xl border border-zinc-200 p-4 dark:border-white/10 bg-zinc-50 dark:bg-night-950">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Pen Name</h3>
-          <input value={(settings.writerName && typeof settings.writerName === "string") ? settings.writerName : ""} onChange={(e) => { try { setWriterName((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="Writer" className="mt-2 h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950" />
+        <section className="mt-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-300">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300">Pen Name</h3>
+          <label className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400 transition-all duration-300">Displayed in exports</label>
+          <input value={(settings.writerName && typeof settings.writerName === "string") ? settings.writerName : ""} onChange={(e) => { try { setWriterName((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="Writer" className="mt-2 h-9 w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all duration-300" />
         </section>
 
-        <section className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-white/10 bg-zinc-50 dark:bg-night-950">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100"><Sun size={15} className="dark:hidden" /><Moon size={15} className="hidden dark:block" /> Appearance</h3>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Theme stored in <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">cngwriter:theme</code>.</p>
+        <section className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-300">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300"><Sun size={15} className="dark:hidden" /><Moon size={15} className="hidden dark:block" /> Appearance</h3>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 transition-all duration-300">Theme stored in <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-zinc-900 dark:text-zinc-100">cngwriter:theme</code>.</p>
           <div className="mt-3 flex gap-2">
-            <button onClick={() => { try { setTheme("light"); } catch {} }} className={`flex-1 rounded-lg border px-3 py-2 text-sm ${theme === "light" ? "border-ember-400 bg-ember-400/15 text-ember-700 dark:text-ember-300" : "border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950"}`}>Light</button>
-            <button onClick={() => { try { setTheme("dark"); } catch {} }} className={`flex-1 rounded-lg border px-3 py-2 text-sm ${theme === "dark" ? "border-ember-400 bg-ember-400/15 text-ember-700 dark:text-ember-300" : "border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950"}`}>Dark</button>
+            <button onClick={() => { try { setTheme("light"); } catch {} }} className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-all duration-300 ${theme === "light" ? "border-amber-600 bg-amber-600/10 text-amber-600 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-400" : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400"}`}>Light</button>
+            <button onClick={() => { try { setTheme("dark"); } catch {} }} className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-all duration-300 ${theme === "dark" ? "border-amber-600 bg-amber-600/10 text-amber-600 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-400" : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400"}`}>Dark</button>
           </div>
         </section>
 
-        <section className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-white/10 bg-zinc-50 dark:bg-night-950">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Shelves / Categories</h3>
+        <section className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-300">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300">Shelves / Categories</h3>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 transition-all duration-300">Soft pill chips — muted colors</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {categories.map((c) => {
               const safeName = (c.name && typeof c.name === "string") ? c.name : "";
               const safeColor = (c.color && typeof c.color === "string") ? c.color : "#e5b168";
-              return <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-white/10 dark:bg-white/10 bg-zinc-50 dark:bg-night-950"><span className="h-2 w-2 rounded-full" style={{ background: safeColor }} />{safeName}</span>;
+              return <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-[#fcfaf7] dark:bg-zinc-800 px-2.5 py-1 text-xs text-zinc-900 dark:text-zinc-100 transition-all duration-300"><span className="h-2 w-2 rounded-full" style={{ background: safeColor }} />{safeName}</span>;
             })}
           </div>
           <div className="mt-3 flex gap-2">
-            <input value={newCategory} onChange={(e) => { try { setNewCategory((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="New shelf name…" className="h-9 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950" onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); }} />
-            <button onClick={handleAddCategory} className="inline-flex h-9 items-center rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Add</button>
+            <input value={newCategory} onChange={(e) => { try { setNewCategory((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="New shelf name…" className="h-9 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all duration-300" onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); }} />
+            <button onClick={handleAddCategory} className="inline-flex h-9 items-center rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 text-sm font-medium text-white dark:text-zinc-900 transition-all duration-300">Add</button>
           </div>
         </section>
 
-        <section className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-white/10 bg-zinc-50 dark:bg-night-950">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100"><Cloud size={15} /> PocketBase — writer_users</h3>
-          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Auth collection <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">writer_users</code> via <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">authWithPassword</code>. Data: <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">writer_stories</code> fields title, content, category(TEXT), word_count, user_id.</p>
-          <label className="mt-3 block text-xs font-medium text-zinc-600 dark:text-zinc-300">PocketBase URL</label>
+        <section className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-300">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300"><Cloud size={15} /> PocketBase — writer_users</h3>
+          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 transition-all duration-300">Auth collection <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-zinc-900 dark:text-zinc-100">writer_users</code> via <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-zinc-900 dark:text-zinc-100">authWithPassword</code>. Data: <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-zinc-900 dark:text-zinc-100">writer_stories</code></p>
+          <label className="mt-3 block text-xs font-medium text-zinc-500 dark:text-zinc-400 transition-all duration-300">PocketBase URL</label>
           <div className="mt-1 flex gap-2">
-            <input value={(pbUrlInput && typeof pbUrlInput === "string") ? pbUrlInput : ""} onChange={(e) => { try { setPbUrlInput((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="https://salaryzapp-pb.onrender.com" className="h-9 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950" />
-            <button onClick={handleSaveUrl} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"><Save size={14} /> Save</button>
+            <input value={(pbUrlInput && typeof pbUrlInput === "string") ? pbUrlInput : ""} onChange={(e) => { try { setPbUrlInput((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="https://salaryzapp-pb.onrender.com" className="h-9 flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 transition-all duration-300" />
+            <button onClick={handleSaveUrl} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 text-sm font-medium text-white dark:text-zinc-900 transition-all duration-300"><Save size={14} /> Save</button>
           </div>
           {!isAuthed ? (
             <>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input value={email} onChange={(e) => { try { setEmail((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="Email" className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950" />
-                <input value={password} onChange={(e) => { try { setPassword((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="Password" type="password" className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950" />
+                <input value={email} onChange={(e) => { try { setEmail((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="Email" className="h-9 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all duration-300" />
+                <input value={password} onChange={(e) => { try { setPassword((e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""); } catch {} }} placeholder="Password" type="password" className="h-9 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 transition-all duration-300" />
               </div>
-              <button onClick={handleLogin} className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-lg bg-ember-400 px-3 text-sm font-bold text-night-950">Sign in & sync</button>
+              <button onClick={handleLogin} className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-lg bg-amber-600 dark:bg-amber-400 px-3 text-sm font-bold text-white dark:text-[#0d0d0d] transition-all duration-300">Sign in & sync</button>
             </>
           ) : (
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900/30 dark:bg-emerald-950/20 bg-zinc-50 dark:bg-night-950">
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-emerald-200 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 transition-all duration-300">
               <span className="text-sm text-emerald-800 dark:text-emerald-200">Signed in{authEmail ? ` as ${authEmail}` : ""}</span>
-              <button onClick={handleLogout} className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs dark:border-white/10 dark:bg-white/10 bg-zinc-50 dark:bg-night-950"><LogOut size={12} /> Sign out</button>
+              <button onClick={handleLogout} className="inline-flex items-center gap-1 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs text-zinc-900 dark:text-zinc-100 transition-all duration-300"><LogOut size={12} /> Sign out</button>
             </div>
           )}
-          {pbStatus && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{(pbStatus && typeof pbStatus === "string") ? pbStatus : ""}</p>}
-          <p className="mt-2 font-mono text-[11px] text-zinc-400">Token key cngwriter:pb_token {loadPbToken() ? "· saved" : "· not set"}</p>
+          {pbStatus && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 transition-all duration-300">{(pbStatus && typeof pbStatus === "string") ? pbStatus : ""}</p>}
+          <p className="mt-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 transition-all duration-300">Token key cngwriter:pb_token {loadPbToken() ? "· saved" : "· not set"}</p>
         </section>
 
-        <section className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-white/10 bg-zinc-50 dark:bg-night-950">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Backup & Export Panel</h3>
-          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Export All → single <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">.json</code> with stories + categories + settings. Import merges by ID, newer <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-white/10">updatedAt</code> wins.</p>
+        <section className="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-all duration-300">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 transition-all duration-300">Backup & Export Panel</h3>
+          <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 transition-all duration-300">Export All → single <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-zinc-900 dark:text-zinc-100">.json</code> with stories + categories + settings. Import merges by ID, newer <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 text-zinc-900 dark:text-zinc-100">updatedAt</code> wins.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={handleExport} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 bg-zinc-50 dark:bg-night-950"><Download size={14} /> Export All (.json)</button>
-            <button onClick={handleImportClick} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 bg-zinc-50 dark:bg-night-950"><Upload size={14} /> Import (.json)</button>
+            <button onClick={handleExport} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 transition-all duration-300"><Download size={14} /> Export All (.json)</button>
+            <button onClick={handleImportClick} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 transition-all duration-300"><Upload size={14} /> Import (.json)</button>
             <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFileChange} />
           </div>
-          {backupStatus && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{backupStatus}</p>}
+          {backupStatus && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 transition-all duration-300">{backupStatus}</p>}
         </section>
       </div>
     </div>

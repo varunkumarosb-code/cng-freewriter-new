@@ -32,7 +32,6 @@ export function Editor({ storyId, onBack }: Props) {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const titleTaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // reset when story switches
   useEffect(() => {
     if (!story || typeof story !== "object") return;
     const safeId = (story.id && typeof story.id === "string") ? story.id : "";
@@ -50,7 +49,6 @@ export function Editor({ storyId, onBack }: Props) {
     return () => {};
   }, [story]);
 
-  // external cloud update sync (if not actively debouncing)
   useEffect(() => {
     const s = story;
     if (!s || typeof s !== "object") return;
@@ -87,7 +85,6 @@ export function Editor({ storyId, onBack }: Props) {
     };
   }, []);
 
-  // auto-resize helper
   const autoResize = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
     try { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; } catch {}
@@ -157,7 +154,7 @@ export function Editor({ storyId, onBack }: Props) {
       const esc = safePlain.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
       const titleSafe = (safeTitle && typeof safeTitle === "string") ? safeTitle.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "Untitled";
       const sShelf = (shelf && typeof shelf === "string") ? shelf : "Unshelved";
-      w.document.write(`<!doctype html><title>${titleSafe}</title><meta charset="utf-8"><style>@media print{@page{margin:18mm}} body{font-family:ui-serif,Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#18181b} h1{font-size:28px;margin:0 0 8px} .meta{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#71717a;margin-bottom:16px} hr{border:none;border-top:1px solid #e4e4e7;margin:16px 0} pre{white-space:pre-wrap;font-family:inherit;font-size:15px;line-height:1.7}</style><h1>${titleSafe}</h1><div class="meta">${sShelf} · ${countWords(safePlain).toLocaleString()} words · ${formatDate(story.updatedAt)}</div><hr/><pre>${esc}</pre>`);
+      w.document.write(`<!doctype html><title>${titleSafe}</title><meta charset="utf-8"><style>@media print{@page{margin:18mm}} body{font-family:ui-serif,Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#1a1a1a} h1{font-size:28px;margin:0 0 8px} .meta{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#71717a;margin-bottom:16px} hr{border:none;border-top:1px solid #e4e4e7;margin:16px 0} pre{white-space:pre-wrap;font-family:inherit;font-size:18px;line-height:1.8}</style><h1>${titleSafe}</h1><div class="meta">${sShelf} · ${countWords(safePlain).toLocaleString()} words · ${formatDate(story.updatedAt)}</div><hr/><pre>${esc}</pre>`);
       w.document.close(); w.focus();
       w.setTimeout(() => { try { w.print(); } catch {} }, 320);
     } catch {}
@@ -165,9 +162,9 @@ export function Editor({ storyId, onBack }: Props) {
 
   if (!story || typeof story !== "object") {
     return (
-      <div className="mx-auto grid max-w-6xl place-items-center px-5 py-16 bg-zinc-50 dark:bg-night-950">
+      <div className="mx-auto grid max-w-6xl place-items-center px-5 py-16 bg-[#fcfaf7] dark:bg-[#0d0d0d] transition-all duration-300">
         <p className="text-sm text-zinc-500 dark:text-zinc-400">Story not found — it may have been deleted.</p>
-        <button onClick={() => { try { onBack(); } catch {} }} className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm dark:border-white/10 dark:bg-white/[0.04] bg-zinc-50 dark:bg-night-950">Go back</button>
+        <button onClick={() => { try { onBack(); } catch {} }} className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 transition-all duration-300">Go back</button>
       </div>
     );
   }
@@ -178,20 +175,19 @@ export function Editor({ storyId, onBack }: Props) {
   const shelfName = getEffectiveShelfName(story, categories);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-zinc-50 dark:bg-night-950">
-      {/* Fixed Top Nav */}
-      <div className="sticky top-16 z-30 border-b border-zinc-200 bg-zinc-50/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-night-950/80 bg-zinc-50 dark:bg-night-950">
+    <div className="min-h-[calc(100vh-4rem)] bg-[#fcfaf7] dark:bg-[#0d0d0d] transition-all duration-300">
+      <div className="sticky top-16 z-30 border-b border-zinc-200 dark:border-zinc-800 bg-[#fcfaf7]/70 dark:bg-[#0d0d0d]/70 backdrop-blur-xl transition-all duration-300">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <button onClick={() => { try { flushNow(); const a = document.activeElement as HTMLElement | null; try { a?.blur?.(); } catch {} window.setTimeout(() => { try { onBack(); } catch {} }, 0); } catch {} }} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 text-[13px] font-medium text-zinc-700 hover:border-zinc-300 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 bg-zinc-50 dark:bg-night-950">
+            <button onClick={() => { try { flushNow(); const a = document.activeElement as HTMLElement | null; try { a?.blur?.(); } catch {} window.setTimeout(() => { try { onBack(); } catch {} }, 0); } catch {} }} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 hover:border-amber-500/30 transition-all duration-300">
               <ChevronLeft size={14} /> Shelf
             </button>
-            <span className={`ml-1 hidden sm:inline-flex items-center gap-1 font-mono text-[11px] ${saveState === "saving" ? "text-amber-600 dark:text-amber-300" : "text-zinc-400 dark:text-zinc-500"} bg-zinc-50 dark:bg-night-950`}>
+            <span className={`ml-1 hidden sm:inline-flex items-center gap-1 font-mono text-[11px] ${saveState === "saving" ? "text-amber-600 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"} transition-all duration-300`}>
               <Save size={12} className={saveState === "saving" ? "animate-pulse" : ""} /> {saveState === "saving" ? "Saving..." : "Saved"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <select value={(story.categoryId && typeof story.categoryId === "string") ? story.categoryId : ""} onChange={(e) => { try { const v = (e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""; setStoryCategory(story.id, v); } catch {} }} className="h-8 rounded-lg border border-zinc-200 bg-white px-2.5 text-[13px] text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 bg-zinc-50 dark:bg-night-950" title="Move to shelf">
+            <select value={(story.categoryId && typeof story.categoryId === "string") ? story.categoryId : ""} onChange={(e) => { try { const v = (e.currentTarget.value && typeof e.currentTarget.value === "string") ? e.currentTarget.value : ""; setStoryCategory(story.id, v); } catch {} }} className="h-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 text-[13px] text-zinc-900 dark:text-zinc-100 transition-all duration-300" title="Move to shelf">
               <option value="">Unshelved</option>
               {categories.map((c) => {
                 const safeName = (c.name && typeof c.name === "string") ? c.name : "";
@@ -200,26 +196,26 @@ export function Editor({ storyId, onBack }: Props) {
               })}
             </select>
             <div ref={menuRef} className="relative">
-              <button onClick={() => { try { setExportOpen((v) => !v); } catch {} }} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 bg-zinc-50 dark:bg-night-950">
+              <button onClick={() => { try { setExportOpen((v) => !v); } catch {} }} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 transition-all duration-300">
                 <Download size={14} /> Export
               </button>
               {exportOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-zinc-900 bg-zinc-50 dark:bg-night-950">
-                  <button onClick={() => doExport("md")} className="flex w-full px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-white/10 bg-zinc-50 dark:bg-night-950">Markdown (.md)</button>
-                  <button onClick={() => doExport("txt")} className="flex w-full px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-white/10 bg-zinc-50 dark:bg-night-950">Plain text (.txt)</button>
-                  <button onClick={() => doExport("pdf")} className="flex w-full px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-white/10 bg-zinc-50 dark:bg-night-950">Print / PDF</button>
+                <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1 shadow-lg transition-all duration-300">
+                  <button onClick={() => doExport("md")} className="flex w-full px-3 py-2 text-left text-sm text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all duration-300">Markdown (.md)</button>
+                  <button onClick={() => doExport("txt")} className="flex w-full px-3 py-2 text-left text-sm text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all duration-300">Plain text (.txt)</button>
+                  <button onClick={() => doExport("pdf")} className="flex w-full px-3 py-2 text-left text-sm text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all duration-300">Print / PDF</button>
                 </div>
               )}
             </div>
-            <button onClick={() => { try { deleteStory(story.id); onBack(); } catch {} }} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-[13px] font-semibold text-red-600 hover:bg-red-600 hover:text-white dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 bg-zinc-50 dark:bg-night-950">
+            <button onClick={() => { try { deleteStory(story.id); onBack(); } catch {} }} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/20 px-3 text-[13px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white transition-all duration-300">
               <Trash2 size={14} /> Delete
             </button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-3xl px-5 py-8 bg-zinc-50 dark:bg-night-950">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-white/[0.07] dark:bg-white/[0.02] bg-zinc-50 dark:bg-night-950">
+      <div className="mx-auto max-w-3xl px-5 py-10">
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 shadow-sm transition-all duration-300">
           <textarea
             ref={titleTaRef}
             value={localTitle}
@@ -227,10 +223,10 @@ export function Editor({ storyId, onBack }: Props) {
             onBlur={() => { try { flushNow(); } catch {} }}
             placeholder="Untitled story"
             rows={1}
-            className="w-full resize-none overflow-hidden bg-transparent font-serif text-[28px] font-semibold leading-tight tracking-tight text-zinc-900 outline-none placeholder:text-zinc-300 dark:text-zinc-100 dark:placeholder:text-zinc-600 bg-zinc-50 dark:bg-night-950"
+            className="w-full resize-none overflow-hidden bg-transparent font-serif text-[30px] font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600 transition-all duration-300"
           />
-          <div className="mt-2 font-mono text-[11px] text-zinc-400 dark:text-zinc-500 bg-zinc-50 dark:bg-night-950">{shelfName} · Last edited {formatDate(story.updatedAt)}</div>
-          <div className="mt-4 h-px bg-zinc-200 dark:bg-white/10" />
+          <div className="mt-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 transition-all duration-300">{shelfName} · Last edited {formatDate(story.updatedAt)}</div>
+          <div className="mt-6 h-px bg-zinc-200 dark:bg-zinc-800 transition-all duration-300" />
           <textarea
             ref={taRef}
             value={localContent}
@@ -238,11 +234,11 @@ export function Editor({ storyId, onBack }: Props) {
             onBlur={() => { try { flushNow(); } catch {} }}
             placeholder="Begin writing…"
             rows={12}
-            className="mt-6 min-h-[420px] w-full resize-none overflow-hidden bg-transparent text-[16px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 dark:text-zinc-100 bg-zinc-50 dark:bg-night-950"
+            className="mt-8 min-h-[420px] w-full resize-none overflow-hidden bg-transparent font-serif text-xl leading-loose text-zinc-900 dark:text-zinc-100 outline-none placeholder:text-zinc-400 dark:placeholder:text-zinc-600 transition-all duration-300"
           />
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.02] bg-zinc-50 dark:bg-night-950">
-            <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-night-950">{words.toLocaleString()} words · {chars.toLocaleString()} chars · {read} min reading</span>
-            <span className={`font-mono text-[11px] ${saveState === "saving" ? "text-amber-600 dark:text-amber-300" : "text-emerald-600 dark:text-emerald-300"} bg-zinc-50 dark:bg-night-950`}>{saveState === "saving" ? "Saving…" : "Saved"}</span>
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-[#fcfaf7] dark:bg-[#0d0d0d] px-4 py-2.5 transition-all duration-300">
+            <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{words.toLocaleString()} words · {chars.toLocaleString()} chars · {read} min reading</span>
+            <span className={`font-mono text-[11px] transition-all duration-300 ${saveState === "saving" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>{saveState === "saving" ? "Saving…" : "Saved"}</span>
           </div>
         </div>
       </div>
