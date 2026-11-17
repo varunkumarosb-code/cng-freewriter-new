@@ -1,5 +1,4 @@
-/** Single source of truth — all domain models */
-export type ViewMode = "shelf" | "editor";
+/** CnG Writer domain models — Option B isolated architecture */
 
 export interface Category {
   id: string;
@@ -8,34 +7,16 @@ export interface Category {
 }
 
 export interface Story {
-  id: string; // crypto.randomUUID() local
+  id: string; // local crypto.randomUUID()
+  remoteId?: string; // PocketBase 15-char auto-generated id from writer_stories
   title: string;
-  content: string; // editor
-  category: string; // plain TEXT shelf name, "" = Unshelved
+  content: string;
+  categoryId: string; // stores Category.id or "" for Unshelved; synced to writer_stories.category (TEXT)
   createdAt: string;
   updatedAt: string;
-  remoteId?: string; // PocketBase 15-char id
 }
 
 export interface AppSettings {
   writerName: string;
   lastBackupAt: string | null;
-  theme: "light" | "dark";
-}
-
-export interface BackupFile {
-  kind: "cng-writer-backup";
-  app: string;
-  version: number;
-  exportedAt: string;
-  stories: Story[];
-  categories: Category[];
-  settings: Partial<AppSettings> | null;
-  meta?: { storyCount: number; categoryCount: number; totalWords: number };
-}
-
-export interface ToastItem {
-  id: string;
-  message: string;
-  tone: "ok" | "error" | "info";
 }
