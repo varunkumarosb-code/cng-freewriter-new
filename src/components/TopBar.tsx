@@ -16,11 +16,12 @@ export function TopBar({ onNewStory, onOpenSettings, onImportClick }: Props) {
   });
 
   useEffect(() => {
-    let unsub: unknown;
-    try {
-      unsub = pb.authStore.onChange(() => { try { setIsConnected(pb.authStore.isValid); } catch {} });
-    } catch {}
-    return () => { try { if (typeof unsub === "function") (unsub as () => void)(); } catch {} };
+    const unsubscribe = pb.authStore.onChange(() => {
+      setIsConnected(pb.authStore.isValid);
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, []);
 
   return (
