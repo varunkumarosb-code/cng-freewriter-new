@@ -1,7 +1,10 @@
 import PocketBase from "pocketbase";
 import type { Story } from "./types";
 
+// Option B isolated collections
 const PB_URL = "https://salaryzapp-pb.onrender.com";
+export const WRITER_USERS = "writer_users";
+export const WRITER_STORIES = "writer_stories";
 
 function getStoredUrl(): string {
   try {
@@ -53,18 +56,37 @@ export function loadPbToken(): string | null {
 
 try { loadPbToken(); } catch {}
 
-// ---- Sync helpers ----
+// ------------------------------------------------------------------
+// Auth — MUST use writer_users
+// ------------------------------------------------------------------
+export async function loginWriter(email: string, password: string) {
+  const safeEmail = (email && typeof email === "string") ? email.trim() : "";
+  const safePass = (password && typeof password === "string") ? password : "";
+  const auth = await pb.collection(WRITER_USERS).authWithPassword(safeEmail, safePass);
+  try { savePbToken((auth as unknown as { token: string }).token); } catch {}
+  return auth;
+}
 
+export function logoutWriter(): void {
+  try { pb.authStore.clear(); } catch {}
+  try { savePbToken(""); } catch {}
+}
+
+// ------------------------------------------------------------------
+// Sync helpers — strict Option B rules
+// ------------------------------------------------------------------
 function wordCountFor(content: string | null | undefined): number {
-  const safe = content || "";
-  const s = safe.trim();
-  if (!s) return 0;
-  return s.split(/\s+/).filter(Boolean).length;
+  const safeText = (content && typeof content === "string") ? content : "";
+  const t = safeText.trim();
+  if (!t) return 0;
+  return t.split(/\s+/).filter(Boolean).length;
 }
 
 /**
- * Create or update a single story in PB.
- * CRITICAL: never send local id; let PB generate 15-char id.
+ * Create or update ONE story.
+ * - NEVER pass local id (crypto.randomUUID or seed like story-lighthouse) in payload.
+ * - Only call update() if story.remoteId is valid.
+ * - Let PB generate its 15-char id, store as story.remoteId.
  */
 export async function syncOneToPocketBase(story: Story): Promise<string | null> {
   try {
@@ -72,25 +94,33 @@ export async function syncOneToPocketBase(story: Story): Promise<string | null> 
     const userId = (pb.authStore.model as unknown as { id?: string })?.id;
     if (!userId) return null;
 
+    const safeTitle = (story.title && typeof story.title === "string") ? story.title : "";
+    const safeContent = (story.content && typeof story.content === "string") ? story.content : "";
+    const safeCategory = (story.categoryId && typeof story.categoryId === "string") ? story.categoryId : "";
+
+    // Resolve category TEXT value — if categoryId is an internal id like cat-novel,
+    // we send the id as category text; consumer can map to name. Never send relation.
     const payload = {
-      title: story.title || "Untitled",
-      content: story.content || "",
-      word_count: wordCountFor(story.content),
-      category: story.category || "", // plain TEXT
-      user_id: userId,
+      title: safeTitle || "Untitled",
+      content: safeContent,
+      category: safeCategory, // plain TEXT
+      word_count: wordCountFor(safeContent),
+      user_id: userId, // relation to writer_users
     };
 
-    if (story.remoteId) {
+    // Rule 4 & 5: only update if remoteId is valid (15-char PB id)
+    if (story.remoteId && typeof story.remoteId === "string" && story.remoteId.length >= 12) {
       try {
-        await pb.collection("cng_stories").update(story.remoteId, payload);
+        await pb.collection(WRITER_STORIES).update(story.remoteId, payload);
         return story.remoteId;
       } catch {
-        // remote deleted or 404 → create anew
-        const created = await pb.collection("cng_stories").create(payload) as unknown as { id: string };
+        // if update fails (deleted remotely), create anew — still never send local id
+        const created = await pb.collection(WRITER_STORIES).create(payload) as unknown as { id: string };
         return created?.id ?? null;
       }
     } else {
-      const created = await pb.collection("cng_stories").create(payload) as unknown as { id: string };
+      // Create — NEVER include local id in payload
+      const created = await pb.collection(WRITER_STORIES).create(payload) as unknown as { id: string };
       return created?.id ?? null;
     }
   } catch (err) {
@@ -102,13 +132,13 @@ export async function syncOneToPocketBase(story: Story): Promise<string | null> 
 export async function fetchRemoteStories(): Promise<Story[] | null> {
   try {
     if (!pb.authStore.isValid || !pb.authStore.model) return null;
-    const records = await pb.collection("cng_stories").getFullList({ sort: "-updated" });
+    const records = await pb.collection(WRITER_STORIES).getFullList({ sort: "-updated" });
     return records.map((r: Record<string, unknown>) => ({
-      id: crypto.randomUUID(), // local id newly generated — will be remapped by merge on remoteId
+      id: crypto.randomUUID(), // fresh local id — will be remapped by merge on remoteId in LibraryContext
       remoteId: String((r as { id: string }).id),
       title: String((r as { title?: string }).title || "Untitled"),
       content: String((r as { content?: string }).content || ""),
-      category: String((r as { category?: string }).category || ""),
+      categoryId: String((r as { category?: string }).category || ""),
       createdAt: String((r as { created?: string }).created || new Date().toISOString()),
       updatedAt: String((r as { updated?: string }).updated || new Date().toISOString()),
     } as Story));
@@ -118,19 +148,20 @@ export async function fetchRemoteStories(): Promise<Story[] | null> {
   }
 }
 
-export async function deleteRemoteStory(remoteId: string): Promise<void> {
+export async function deleteRemoteStory(remoteId: string | null | undefined): Promise<void> {
   try {
-    if (!pb.authStore.isValid || !remoteId) return;
-    await pb.collection("cng_stories").delete(remoteId);
+    const safeId = (remoteId && typeof remoteId === "string") ? remoteId : "";
+    if (!safeId) return;
+    if (!pb.authStore.isValid) return;
+    await pb.collection(WRITER_STORIES).delete(safeId);
   } catch (err) {
     try { console.warn("[PB] delete failed", err); } catch {}
-    // do not rethrow — local delete already done
   }
 }
 
-// Debounced queue for bulk saves
+// Debounced background queue
 let syncTimer: number | null = null;
-let pendingStories: Story[] = [];
+let pending: Story[] = [];
 let pendingCb: ((localId: string, remoteId: string) => void) | null = null;
 
 export function queueSyncToPB(stories: Story[] | Story, onAssigned?: (localId: string, remoteId: string) => void): void {
@@ -138,17 +169,14 @@ export function queueSyncToPB(stories: Story[] | Story, onAssigned?: (localId: s
     if (!pb.authStore.isValid || !pb.authStore.model) return;
     const arr = Array.isArray(stories) ? stories : [stories];
     if (arr.length === 0) return;
-    pendingStories = arr;
+    pending = arr;
     if (typeof onAssigned === "function") pendingCb = onAssigned;
-    if (syncTimer !== null) {
-      try { window.clearTimeout(syncTimer); } catch {}
-      syncTimer = null;
-    }
+    if (syncTimer !== null) { try { window.clearTimeout(syncTimer); } catch {} syncTimer = null; }
     syncTimer = window.setTimeout(() => {
       syncTimer = null;
-      const batch = pendingStories.slice();
+      const batch = pending.slice();
       const cb = pendingCb;
-      pendingStories = [];
+      pending = [];
       pendingCb = null;
       void (async () => {
         for (const s of batch) {
