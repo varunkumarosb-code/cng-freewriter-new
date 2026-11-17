@@ -33,8 +33,11 @@ export function Editor({ storyId, onBack }: Props) {
   const titleTaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // REQUIRED: scroll to top on story change — explicit {} and no return value
-  useEffect(() => {
-    window.scrollTo(0, 0);
+    useEffect(() => {
+    try {
+      window.scrollTo(0, 0);
+    } catch {}
+    return () => {};
   }, [storyId]);
 
   useEffect(() => {
