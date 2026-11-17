@@ -190,9 +190,9 @@ class Store {
   }
 
   async login(email: string, pass: string) {
-    const auth = await pb.collection("writer_users").authWithPassword(email.trim(), pass);
+    const auth = await pb.collection("users").authWithPassword(email.trim(), pass);
     if (auth && auth.token) localStorage.setItem("cngwriter:pb_token", auth.token);
-    this.toast("Signed in to PocketBase", "ok");
+    this.toast("Signed in to CnG Writer", "ok");
     void this.refreshFromCloud();
   }
 

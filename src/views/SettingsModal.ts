@@ -19,8 +19,8 @@ export function openSettingsModal() {
 
       <!-- Cloud Sync Section -->
       <div class="mt-4">
-        <h4 class="font-mono text-[11px] font-semibold uppercase tracking-wider text-nordic-mutedLight dark:text-nordic-mutedDark">PocketBase Cloud</h4>
-        <p class="mt-1 text-xs text-nordic-mutedLight dark:text-nordic-mutedDark">Isolated collection: <code class="font-mono text-nordic-accentLight dark:text-nordic-accentDark">writer_users</code> / <code class="font-mono text-nordic-accentLight dark:text-nordic-accentDark">cng_stories</code></p>
+        <h4 class="font-mono text-[11px] font-semibold uppercase tracking-wider text-nordic-mutedLight dark:text-nordic-mutedDark">CnG Cloud Sync</h4>
+        <p class="mt-1 text-xs text-nordic-mutedLight dark:text-nordic-mutedDark">Sign in to synchronize your stories across all your devices.</p>
 
         ${isAuthed ? `
           <div class="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
@@ -31,7 +31,7 @@ export function openSettingsModal() {
           <form id="form-login" class="mt-3 space-y-2">
             <input id="login-email" type="email" placeholder="author@example.com" required class="w-full rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark px-3 py-2 text-xs text-nordic-textLight dark:text-nordic-textDark outline-none" />
             <input id="login-pass" type="password" placeholder="Password" required class="w-full rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-bgLight dark:bg-nordic-bgDark px-3 py-2 text-xs text-nordic-textLight dark:text-nordic-textDark outline-none" />
-            <button type="submit" class="w-full rounded-lg bg-nordic-accentLight dark:bg-nordic-accentDark py-2 text-xs font-bold text-white dark:text-nordic-bgDark hover:opacity-90">Sign in to PocketBase</button>
+            <button type="submit" class="w-full rounded-lg bg-nordic-accentLight dark:bg-nordic-accentDark py-2 text-xs font-bold text-white dark:text-nordic-bgDark hover:opacity-90">Sign in to CnG Writer</button>
           </form>
         `}
       </div>
