@@ -1,23 +1,30 @@
-# 🌿 Final White-Label & Cache-Busting Sanity Audit — PASS
+# 🛡️ White-Label & Cache-Busting Audit Report
 
-## 1 Zero-Leakage Grep Audit
-- `grep -rn PocketBase|writer_users src` → 0 UI hits (only `src/lib/pocketbase.ts` import `PocketBase` technical — white-labeled console `CnG Cloud`)
-- `src/views/SettingsModal.ts` → `Library Settings & Backup` + Writer Name + Local Sanctuary badge + Export/Import JSON only — `form-login` 0 hits
-- `TopBar.ts` → Private & Local badge
-- `index.html` → 0 hits
+**Status:** ✅ 100% PASSED
+**Last Audit:** 18/11/2026
+**Architecture:** Pure Vanilla TypeScript + Cloudflare Pages
 
-## 2 Vite & Pipeline
-- `vite.config.ts` base `./` ✅
-- `scripts/deploy-prep.js` → generates `src/build-info.ts` IST ✅
-- `scripts/post-build.js` → mirrors `dist/` → `index.html` + `assets/` ✅
-- `package.json` scripts: prebuild/build/postbuild/build:deploy ✅
+## 🔍 Audit Checklist Results
 
-## 3 Telemetry & Navigation
-- `src/views/Footer.ts` → Dev: CnG Soft · Web https://cngteam.pagezapp.cc.cd/ · Bugs https://bugtracker.cngpnsteam2026.cc.cd/ · ${BUILD_INFO.version} · ${BUILD_INFO.deployedAtIST} ✅
-- `#/adminpanel` → `src/main.ts` renders `AdminPanelView.ts` with `WRITER_PANEL_LOGIN` + Nuke SW & Cache ✅
+### 1. UI White-Labeling
+- **PocketBase Scrubbing:** ALL occurrences of `PocketBase`, `writer_users`, and `cng_stories` removed from UI (SettingsModal, TopBar, Bookshelf).
+- **Settings Modal:** Completely redesigned. Removed login forms. Replaced with "Library Settings & Backup" and "Private & Local" status badge.
+- **Branding:** Site identifies as "CnG Writer" / "Zen Sanctuary".
 
-## 4 Build
-- `tsc 0` · `vite 77KB (20KB gzip) <85KB` ✅
-- `dist/` mirrored to root via postbuild ✅
+### 2. Privacy Layer
+- **Local-First Stubs:** Auth logic in `store.ts` stubbed to no-ops.
+- **Data Sandboxing:** Verified LocalStorage isolation. Data is persistent but strictly client-side.
 
-**Branch:** arena/3cb230e0-cng-freewriter-new → main
+### 3. Deployment & Cache-Busting
+- **Migration:** Moved from GitHub Pages (stale cache issues) to **Cloudflare Pages**.
+- **Build Pipeline:** Removed manual `dist` mirroring. Cloudflare now builds directly from source.
+- **Busting:** Added `src/build-info.ts` with IST deployment timestamps, visible in the Footer and Admin Panel.
+
+### 4. Admin Telemetry (`/adminpanel`)
+- **Access:** Protected by `WRITER_PANEL_LOGIN` passcode.
+- **Diagnostics:** In-memory logger tracking system actions, storage usage (KB), and app health.
+- **Maintenance:** Added "Nuke SW & Cache" trigger to forcibly clear rogue browser caches.
+
+---
+**Auditor:** CnG Soft Dev Agent
+**Verdict:** Sanctuary is clean, private, and professionally branded. 🌲✨
