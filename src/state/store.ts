@@ -189,18 +189,13 @@ class Store {
     return true;
   }
 
-  async login(email: string, pass: string) {
-    const auth = await pb.collection("users").authWithPassword(email.trim(), pass);
-    if (auth && auth.token) localStorage.setItem("cngwriter:pb_token", auth.token);
-    this.toast("Signed in to CnG Writer", "ok");
-    void this.refreshFromCloud();
+  // White-label: pure local-first no-ops
+  async login(_email: string, _pass: string) {
+    return;
   }
 
   logout() {
-    pb.authStore.clear();
-    localStorage.removeItem("cngwriter:pb_token");
-    this.toast("Signed out", "ok");
-    this.notify();
+    return;
   }
 
   async refreshFromCloud() {

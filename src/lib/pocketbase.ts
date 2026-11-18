@@ -48,7 +48,7 @@ export async function fetchRemoteStories(): Promise<Story[]> {
       remoteId: r.id,
     }));
   } catch (e) {
-    console.warn("fetchRemoteStories failed:", e);
+    console.warn("CnG Cloud fetch failed:", e);
     return [];
   }
 }
@@ -59,7 +59,7 @@ export async function deleteRemoteStory(remoteId: string): Promise<boolean> {
     await pb.collection("cng_stories").delete(remoteId);
     return true;
   } catch (e) {
-    console.warn("deleteRemoteStory failed:", e);
+    console.warn("CnG Cloud delete failed:", e);
     return false;
   }
 }
@@ -111,6 +111,6 @@ async function syncOneToPocketBase(story: Story, onRemoteIdAssigned: (localId: s
       onRemoteIdAssigned(story.id, created.id);
     }
   } catch (err) {
-    console.warn("PocketBase story create failed:", err);
+    console.warn("CnG Cloud sync failed:", err);
   }
 }
