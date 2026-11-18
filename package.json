@@ -3,12 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
+    "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/deploy-prep.js",
     "build": "tsc && vite build",
-    "postbuild": "node scripts/post-build.js",
-    "build:deploy": "npm run build"
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide": "^0.460.0",
