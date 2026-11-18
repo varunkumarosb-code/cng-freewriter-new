@@ -1,40 +1,65 @@
-import "./style.css";
-import { store } from "./state/store";
-import { renderTopBar } from "./views/TopBar";
-import { renderBookshelf } from "./views/Bookshelf";
-import { renderEditor } from "./views/Editor";
-import { renderToasts } from "./views/Toast";
+import './style.css';
+import { store } from './state/store';
+import { renderTopBar } from './views/TopBar';
+import { renderBookshelf } from './views/Bookshelf';
+import { renderEditor } from './views/Editor';
+import { renderAdminPanel } from './views/AdminPanelView';
+import { logger } from './utils/logger';
 
-const appRoot = document.getElementById("app")!;
-
-function renderApp() {
-  // Apply theme class
-  if (store.theme === "dark") {
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-  }
-
-  appRoot.replaceChildren();
-
-  // Top Bar
-  appRoot.appendChild(renderTopBar());
-
-  // Main View: Bookshelf OR Zen Editor
-  if (store.activeStoryId) {
-    appRoot.appendChild(renderEditor(store.activeStoryId));
-  } else {
-    appRoot.appendChild(renderBookshelf());
-  }
-
-  // Floating Toasts
-  appRoot.appendChild(renderToasts());
+// 1. Force Unregister Legacy Service Workers (prevents cached old builds)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const reg of registrations) {
+      reg.unregister().then(() => {
+        logger.info('SYSTEM', 'Unregistered legacy service worker');
+      });
+    }
+  });
 }
 
-// Initial boot
-renderApp();
+function syncTheme() {
+  if (store.theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
 
-// Subscribe to store updates
+function renderApp() {
+  syncTheme();
+  const appRoot = document.getElementById('app') || document.body;
+  appRoot.innerHTML = '';
+
+  const hash = window.location.hash || '';
+
+  // 1. Admin Panel Route
+  if (hash === '#/adminpanel') {
+    logger.action('ROUTER', 'Viewing /adminpanel');
+    appRoot.appendChild(renderAdminPanel());
+    return;
+  }
+
+  // 2. Main App (TopBar + View)
+  appRoot.appendChild(renderTopBar());
+
+  if (store.activeStoryId) {
+    logger.action('ROUTER', `Editing story ${store.activeStoryId}`);
+    appRoot.appendChild(renderEditor(store.activeStoryId));
+  } else {
+    logger.action('ROUTER', 'Viewing Bookshelf');
+    appRoot.appendChild(renderBookshelf());
+  }
+}
+
+// Subscribe to store changes & hash routing
 store.subscribe(() => {
   renderApp();
 });
+
+window.addEventListener('hashchange', () => {
+  renderApp();
+});
+
+// Initial boot
+logger.info('APP', 'CnG Writer initialized');
+renderApp();
