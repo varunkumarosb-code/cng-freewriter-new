@@ -1,19 +1,22 @@
-# CnG FreeWriter — Local-First Writing Studio
+# CnG Writer — Local-First Writing Sanctuary
 
-> Distraction-free writing app with a bookshelf → editor flow, offline-first with optional PocketBase cloud sync. Deployed as a single-file SPA on GitHub Pages.
+> Distraction-free, local-first writing sanctuary with Nordic Forest theme. 100% private on this device — no cloud, no tracking. Offline auto-save + manual JSON backup.
 
-**Live:** `https://varunkumarosb-code.github.io/cng-freewriter-new/` (base `"/cng-freewriter-new/"`)  
-**Status:** Clean-slate rewrite `5aa1180` — zero Fiber `effect.destroy` crash, `tsc 0 errors`, `vite build 1.34 MB singlefile`.
+**Live:** **https://writer.tiafa.cc.cd/** — deployed on **Cloudflare Pages** (`base: "./"`)  
+**Status:** Vanilla TypeScript rewrite `v2.0.0` — zero React Virtual DOM crashes, `tsc 0`, `vite 77KB (20KB gzip)`, white-label pure local-first.
 
 ---
 
 ## ✨ Features
 
-- **Bookshelf:** grid, search (`title | content | shelf`), filter by category, word-count + `timeAgo` cards, deletable badge
-- **Editor:** title + markdown content, live `words / chars / readingMinutes`, 200 ms debounced autosave with explicit `clearTimeout` guard, Export → Markdown / TXT / Print-PDF
-- **TopBar:** word total, PB sync badge (`Local` / `Synced`), New story, Export all, Settings, theme toggle
-- **Settings Modal:** PocketBase URL + `email/password` login, token persisted `cngwriter:pb_token`, Backup JSON export / import, Clear local library
-- **Offline-first:** all writes go to `localStorage` instantly; PB sync is best-effort queued (2 s debounce) when authed
+- **Nordic Library (Bookshelf):** grid of story cards, live search (`title | content | shelf`), filter chips (`All`, `Unshelved`, custom shelves), word-count + `timeAgo` + `formatDate`, `Start writing`, delete, **Footer** with telemetry (`v2.0.0 · IST timestamp` + `Dev: CnG Soft` + `Web` + `Bugs/Feedback`)
+- **Zen Editor:** title + content `textarea` auto-resize, `Shelf` back (bulletproof unmount — `clearTimeout` + `setActiveStory(null)`), shelf picker, Export → Markdown / TXT / Print-PDF, stats bar `words · chars · readingMinutes`, `Saving...` → `Saved`
+- **TopBar:** Nordic header, `Private & Local` badge (emerald dot), `Export All`, `Import`, `+ New story`, `Settings` (⚙️)
+- **Library Settings & Backup (SettingsModal):** `Library Settings & Backup` title, Writer Profile `Local Sanctuary · 100% Private on this device`, Writer Name input (persisted `cngwriter:settings`), Backup `Export JSON` / `Import JSON` (no login form)
+- **Toasts:** floating bottom-right, auto-dismiss 2.8s
+- **Admin Panel:** `#/adminpanel` route, passcode `WRITER_PANEL_LOGIN` (override via `localStorage WRITER_PANEL_SECRET`), telemetry (stories, words, storage KB, build info), logs, **Nuke SW & Force Cache Bust** (unregisters service workers + clears cache + reload)
+- **Theme:** Nordic Forest `light` / `dark` (`cngwriter:theme` + `documentElement` class), toggle in Bookshelf
+- **Offline-first:** all writes to `localStorage` instantly; no network required
 
 ---
 
@@ -21,182 +24,202 @@
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| **Framework** | React 19.2.6 + React-DOM | hooks-only, no router — `activeView: 'shelf'|'editor'` + `activeStoryId` conditional render |
-| **Language** | TypeScript 5.9 `strict: true` (`noUnusedLocals/Params`) | domain types `Story/Category/BackupFile` |
-| **Tooling** | Vite 7.3.2 + `@vitejs/plugin-react` 5.1.1 | fast dev, `vite-plugin-singlefile` deploy |
-| **Styling** | Tailwind CSS 4.1.17 (`@tailwindcss/vite`) + `clsx` + `tailwind-merge` | utility-first, dark mode `class="dark"` via `cngwriter:theme` |
-| **Icons** | `lucide-react` 1.57 | shelf/editor/topbar |
-| **Backend (optional)** | PocketBase `^0.28.1` (`https://salaryzapp-pb.onrender.com` default) | auth + `cng_stories` collection |
-| **Deploy** | GitHub Pages, `base: "/cng-freewriter-new/"`, `viteSingleFile` | single `index.html` with inline sourcemap |
-| **Persistence** | `localStorage` | keys `cngwriter:stories`, `categories`, `settings`, `theme`, `pb_url`, `pb_token` (migrates legacy `cng:pb_url`, `cng-writer:v1:*`) |
+| **Framework** | Vanilla TypeScript + Vite 6.0.3 | No React — zero `effect.destroy` / ref-callback crashes, pub/sub store |
+| **Language** | TypeScript 5.6 `strict: true` (`moduleResolution: bundler`) | `Story` / `Category` / `AppSettings` / `BackupData` / `Theme` |
+| **Styling** | Tailwind CSS 3.4.15 + PostCSS + Autoprefixer | `nordic.*` palette, `darkMode: class`, serif/mono fonts |
+| **Icons** | `lucide` 0.460 (via CDN inline SVG — no `lucide-react`) | TopBar / Bookshelf / Editor |
+| **Backend** | `pocketbase` 0.21.5 (white-labeled `CnG Cloud`) | Optional sync stub (`cng_stories` / `writer_users` — UI removed, data-layer retained for compat; 404 self-healing) |
+| **Persistence** | `localStorage` only | `cngwriter:stories`, `cngwriter:categories`, `cngwriter:settings`, `cngwriter:theme`, `cngwriter:pb_url`, `cngwriter:pb_token` (legacy migrate from `cng:pb_url` etc.) |
+| **Deploy** | Cloudflare Pages → **https://writer.tiafa.cc.cd/** | `base: "./"`, `dist/` mirrored to `assets/` + `index.html` via `scripts/post-build.js` |
+| **State** | `src/state/store.ts` pub/sub | `store.subscribe()` → `renderApp()` — no Virtual DOM |
 
 ### Build Config (`vite.config.ts`)
 
 ```ts
+import { defineConfig } from "vite";
 export default defineConfig({
-  base: "/cng-freewriter-new/",
-  plugins: [react(), tailwindcss(), viteSingleFile()],
-  resolve: { alias: { "@": "src" } },
-  build: { minify: false, sourcemap: 'inline', target: 'es2020' },
-  esbuild: { minifyIdentifiers:false, minifySyntax:false, minifyWhitespace:false, keepNames:true }
-})
+  base: "./",
+  build: { outDir: "dist", assetsDir: "assets", sourcemap: false }
+});
 ```
-Unminified + `keepNames` keeps crash stacks readable; `AUDIT_REPORT.md` documents the `z is not a function` minifier bug.
+
+### Package Scripts (`package.json`)
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "node scripts/deploy-prep.js",
+    "build": "tsc && vite build",
+    "postbuild": "node scripts/post-build.js",
+    "build:deploy": "npm run build"
+  }
+}
+```
+- `prebuild` → `scripts/deploy-prep.js` generates `src/build-info.ts` (`version`, `deployedAtIST`, `timestamp`, `adminSecretDefault: WRITER_PANEL_LOGIN`)
+- `postbuild` → `scripts/post-build.js` mirrors `dist/index.html` → `index.html` + `dist/assets/*` → `assets/` (cache-busting)
 
 ---
 
 ## 🏗 Architecture
 
 ```
-src/main.tsx  — React effect shield
-  └─> patches React.useEffect/useLayoutEffect app-wide:
-      cleanup !== undefined && typeof cleanup !== 'function' → warn + return undefined
-      + global window.onerror / unhandledrejection loggers
+src/main.ts — Bootloader + Router + SW purge
+  ├─ serviceWorker.getRegistrations().forEach(unregister) // cache-bust
+  ├─ syncTheme() → documentElement.classList + cngwriter:theme
+  ├─ hash === '#/adminpanel' → renderAdminPanel()
+  └─ else → renderTopBar() + (activeStoryId ? renderEditor(id) : renderBookshelf()) + renderToasts
+  └─ store.subscribe(renderApp) + hashchange listener
 
-src/App.tsx   — Shell
-  ├─ useTheme() → documentElement.classList + cngwriter:theme
-  ├─ stories / categories from loadStories()/loadCategories() (seedLibrary if empty)
-  ├─ activeView + activeStoryId → conditional: shelf? <Bookshelf/> : <Editor/>
-  ├─ debounced saves: saveStories(180ms), saveCategories(180ms) — explicit clearTimeout cleanup
-  ├─ PB pull on mount (no async effect): fetchRemoteStories() → merge by newer updatedAt
-  ├─ handlers: createStory() (crypto.randomUUID), select/back (blur + setTimeout(0)), update (immutable), delete (confirm + deleteRemoteStory), exportAll
-  └─ <TopBar onNewStory/onOpenSettings/onExportAll> + <SettingsModal>
+src/state/store.ts — Vanilla Store (pub/sub)
+  ├─ loadStories()/loadCategories()/loadSettings()/loadTheme() (seed: Novel/Essays/Poetry/Journal + lighthouse)
+  ├─ schedulePersist() 150ms → saveStories/Categories/Settings
+  ├─ createStory(initialCategoryId?) → crypto fallback ID, setActiveStory
+  ├─ updateStory(id, patch) → map + updatedAt, schedulePersist (no queueSyncToPB in white-label)
+  ├─ deleteStory, addCategory, exportAllBackup, importBackupText
+  └─ login/logout → no-ops (white-label), refreshFromCloud → no-op
 
-src/components/
-  TopBar.tsx      → Feather logo, PB badge via pb.authStore.onChange() (explicit unsub cleanup)
-  Bookshelf.tsx   → search/filter memo, getEffectiveShelfName / getShelfCount / isDeletableCategory
-  Editor.tsx      → localTitle/Content + refs + 200ms scheduleSave → onUpdateStory, flushNow on blur/back
-  SettingsModal.tsx → pbUrlInput, auth, buildBackup/parseBackup/downloadJson, token status
+src/views/
+  TopBar.ts        → CnG logo, Private & Local badge, Export All / Import / New story / Settings
+  Bookshelf.ts     → search + shelf chips + story cards + ${renderFooter()}
+  Editor.ts        → title/content textarea + autoResize + scheduleSave 200ms + Export/Print
+  SettingsModal.ts → #settings-modal-backdrop, Library Settings & Backup, Writer Name, Export/Import JSON
+  Toast.ts         → store.toasts → floating container
+  Footer.ts        → Dev: CnG Soft · Web https://cngteam.pagezapp.cc.cd/ · Bugs https://bugtracker.cngpnsteam2026.cc.cd/ · v2.0.0 · IST
+  AdminPanelView.ts → WRITER_PANEL_LOGIN gate, telemetry, logs, Nuke SW & Cache
 
 src/lib/
-  types handled in src/types.ts
-  pocketbase.ts   → getStoredUrl(), pb singleton (autoCancellation false), updatePbUrl(), save/load token, fetchRemoteStories(), deleteRemoteStory()
-  storage.ts      → KEYS + LEGACY_KEYS migration, seedLibrary (Novel/Essays/Poetry/Journal + lighthouse story), read/writeJson, queueSyncToPB(stories|patch, onAssigned)
-  format.ts       → countWords(), readingMinutes(string|number), formatDate/longDate, timeAgo(), formatBytes()
-  backup.ts       → slugify(), stripMarkdown(), storyToMarkdown(), storyToPlainText(), downloadFile()
+  types.ts         → Story, Category, AppSettings, BackupData, Theme, ToastItem
+  storage.ts       → KEY_STORIES etc., DEFAULT_CATEGORIES, SEED_STORY, load/save, getEffectiveShelfName/getShelfCount, mergeByUpdatedAt
+  format.ts        → countWords, readingMinutes, formatDate, timeAgo, slugify
+  backup.ts        → buildBackup, parseBackup, downloadFile, storyToMarkdown/PlainText, printStoryPDF
+  pocketbase.ts    → pb singleton (autoCancellation false), setCustomPbUrl, fetchRemoteStories/deleteRemoteStory/queueSyncToPB (white-label CnG Cloud)
+
+src/build-info.ts  → BUILD_INFO (auto-generated IST)
+src/utils/logger.ts → SystemLogger (INFO/WARN/ERROR/ACTION)
+scripts/
+  deploy-prep.js   → IST timestamp → src/build-info.ts
+  post-build.js    → dist → root mirror
 ```
 
 **Key invariants:**
-- Every `useEffect` returns `void` or `() => { clearTimeout(timer) }` — never `return clearTimeout`, never async.
-- No direct mutation — patches are `map` + spread.
-- Editor autosave is the *only* writer; PB sync is fire-and-forget.
-- Route guard is render-only: `if (!story) render "Story not found" + Go back` — no `useEffect(() => onBack())` during mount.
+- No React — no `useEffect` cleanup bugs; all timers use explicit `clearTimeout`.
+- No direct mutation — `store.stories = store.stories.map(s => ...)` + `schedulePersist()`.
+- Editor autosave is *only* writer (200ms debounce); cloud sync is stubbed/no-op in white-label.
+- Route is hash-based: `#/adminpanel` → Admin, else `activeStoryId` decides shelf/editor.
 
 ---
 
-## 📂 File Tree (current `main`)
+## 📂 File Tree (current `main` @ `9474ed8`)
 
 ```
 .
-├── FreeWriter_DevNotes/          # original prompts / context / file tree
+├── index.html                 # mirrored from dist (CF Pages entry)
+├── assets/                    # mirrored from dist/assets (CF Pages)
+│   ├── index-*.js            # ~77KB (20KB gzip)
+│   └── index-*.css           # ~23KB
 ├── src/
-│   ├── App.tsx
-│   ├── main.tsx                  # shield
-│   ├── index.css                 # tailwind base
-│   ├── types.ts                  # ViewMode, Story, Category, AppSettings, BackupFile
-│   ├── components/
-│   │   ├── TopBar.tsx
-│   │   ├── Bookshelf.tsx
-│   │   ├── Editor.tsx
-│   │   └── SettingsModal.tsx
-│   └── lib/
-│       ├── pocketbase.ts
-│       ├── storage.ts
-│       ├── format.ts
-│       └── backup.ts
-├── AUDIT_REPORT.md               # back-nav crash + minifier audit
-├── index.html
-├── vite.config.ts
+│   ├── main.ts               # router + SW nuke + theme sync
+│   ├── style.css             # @tailwind base/components/utilities + thin scrollbar
+│   ├── build-info.ts         # auto-generated v2.0.0 + IST
+│   ├── lib/
+│   │   ├── types.ts
+│   │   ├── storage.ts
+│   │   ├── format.ts
+│   │   ├── backup.ts
+│   │   └── pocketbase.ts     # white-label CnG Cloud stub
+│   ├── state/
+│   │   └── store.ts          # pub/sub store
+│   ├── views/
+│   │   ├── TopBar.ts
+│   │   ├── Bookshelf.ts
+│   │   ├── Editor.ts
+│   │   ├── SettingsModal.ts
+│   │   ├── Toast.ts
+│   │   ├── Footer.ts
+│   │   └── AdminPanelView.ts
+│   └── utils/
+│       └── logger.ts
+├── scripts/
+│   ├── deploy-prep.js
+│   └── post-build.js
+├── vite.config.ts            # base "./"
+├── tailwind.config.js        # nordic.* palette
+├── postcss.config.js
 ├── tsconfig.json
-├── package.json
-└── README.md (this file)
+└── package.json              # v2.0.0, vanilla
 ```
-Deleted from legacy: `src/state/LibraryContext.tsx`, `src/utils/cn.ts`, `src/lib/library.ts|model.ts|useLibrary.ts|types.ts`, `src/components/BackupPanel|ExportMenu|ImportButton|Menu|Toast`.
+
+Removed legacy: `src/App.tsx`, `src/components/*`, `src/main.tsx` (React), `src/index.css`, `src/state/LibraryContext.tsx`, `src/types.ts`.
 
 ---
 
 ## 🗄 Data
 
-### Types (`src/types.ts`)
+### Types (`src/lib/types.ts`)
 
 ```ts
-type ViewMode = 'shelf' | 'editor';
-interface Category { id:string; name:string; color:string; }
-interface Story { id:string; title:string; content:string; categoryId:string|null; createdAt:string; updatedAt:string; remoteId?:string; }
-interface AppSettings { writerName:string; lastBackupAt:string|null; }
-interface BackupFile { kind:"cng-writer-backup"; app:string; version:number; exportedAt:string; stories:Story[]; categories:Category[]; settings:Partial<AppSettings>|null; }
+interface Story { id: string; title: string; content: string; categoryId: string; createdAt: string; updatedAt: string; remoteId?: string; }
+interface Category { id: string; name: string; order: number; }
+interface AppSettings { writerName: string; lastBackupAt: string | null; }
+interface BackupData { version: 1; exportedAt: string; settings?: AppSettings; categories: Category[]; stories: Story[]; }
+type Theme = "light" | "dark";
+interface ToastItem { id: string; message: string; tone: "ok" | "error" | "info"; }
 ```
 
 ### localStorage
 
 | Key | Value |
 |-----|-------|
-| `cngwriter:stories` | `Story[]` |
-| `cngwriter:categories` | `Category[]` |
+| `cngwriter:stories` | `Story[]` (seed: story-lighthouse) |
+| `cngwriter:categories` | `Category[]` (Novel, Essays, Poetry, Journal) |
 | `cngwriter:settings` | `AppSettings` |
-| `cngwriter:theme` | `"light"|"dark"` |
-| `cngwriter:pb_url` | PB base URL |
-| `cngwriter:pb_token` | auth token |
-
-Migrates on load: `cng:pb_url` → `cngwriter:pb_url`, `cng-writer:v1:stories/categories/settings`, `cngwriter:v1:*`.
-
-### PocketBase (`cng_stories`)
-
-Fields: `id, user (relation), title, content, category (string categoryId), word_count, created, updated`.  
-Auth: `users` collection `authWithPassword(email,password)`. Token saved via `savePbToken(token)`.  
-`PB_URL` default `https://salaryzapp-pb.onrender.com` — change in Settings → Save.
+| `cngwriter:theme` | `"light" \| "dark"` |
+| `cngwriter:pb_url` | PB base URL (optional) |
+| `cngwriter:pb_token` | auth token (optional) |
 
 ### Backup
 
-`buildBackup(stories,categories,settings?)` → `downloadJson(filename,data)` or `downloadJson(backupObj)` → `cng-writer-backup-YYYY-MM-DD.json`. `parseBackup(text)` handles both new envelope and legacy `stories`-only arrays.
+`buildBackup(stories, categories, settings)` → `cng-writer-backup-YYYY-MM-DD.json` via `downloadFile`. `parseBackup(jsonStr)` handles new envelope + legacy arrays.
 
 ---
 
 ## 💻 Development
 
 ```bash
-npm install          # installs vite, react, tailwind, pocketbase, etc.
-npm run dev          # vite dev server → http://localhost:5173/cng-freewriter-new/
-npm run build        # vite build → dist/index.html (singlefile, check 1.34 MB)
-npm run preview      # preview built singlefile locally
-npx tsc --noEmit     # must be 0 errors before PR
+npm install          # vite, typescript, tailwind, pocketbase, lucide
+npm run dev          # vite → http://localhost:5173/
+npm run build        # tsc && vite build → dist/ (77KB)
+npm run build:deploy # prebuild (IST) + build + postbuild (mirror to root)
+npm run preview      # preview dist
 ```
 
-No env vars. PB URL is runtime-configurable. Dark mode toggles `document.documentElement` class.
+No env vars. Theme persists `cngwriter:theme`. Cloudflare Pages reads `index.html` + `assets/` at root.
 
 ---
 
-## 🔮 Future Development Guide
+## 🚀 Deploy
 
-### Adding a feature (example: tags, word goal)
-1. Extend `Story` in `src/types.ts` (e.g., `tags?: string[]`).
-2. Add helper in `src/lib/storage.ts` (migrate legacy, `getEffectiveTags()`), bump `buildBackup` version if needed + keep `parseBackup` backward-compat.
-3. Add UI in `Bookshelf` (filter) or `Editor` (input) — keep handlers immutable, debounce writes.
-4. If cloud field: add column in PB `cng_stories`, include in `queueSyncToPB` payload (`user/user_id`).
-
-### Rules
-- **useEffect:** `return () => { clearTimeout(timer) }` or `return () => {}` — never implicit, never `return promise`.
-- **Updates:** `setStories(prev => prev.map(s => s.id===id ? {...s, ...patch, updatedAt: now} : s))`.
-- **PB:** never block UI; `fetchRemoteStories().then(...).catch(()=>{})`, `queueSyncToPB` debounced, `deleteRemoteStory` fire-and-forget.
-- **Styles:** Tailwind only; `dark:` variants for every custom color.
-- **Build stays unminified** for auditability — don't re-enable minify without reviewing `AUDIT_REPORT.md`.
-
-### Roadmap ideas
-- [ ] Search index (Fuse) + category CRUD in Settings
-- [ ] Collaborative cursors (PB realtime / WebSocket)
-- [ ] Export to DOCX/EPUB via `backup.ts` extensions
-- [ ] Offline PWA (service worker + `vite-plugin-pwa`)
-- [ ] Tests: `vitest` for `format/stripMarkdown/parseBackup`, Playwright for shelf→editor→back cycle
-
-### Deploy
-Push to `main` auto-deploys via GitHub Pages (repo setting Pages → `dist` or `gh-pages` branch depending on workflow). Base path must stay `/cng-freewriter-new/`.
+- **Hosting:** **Cloudflare Pages** → **https://writer.tiafa.cc.cd/** (migrated from GitHub Pages)
+- **Base:** `base: "./"` (relative, works on CF Pages root)
+- **Pipeline:** `npm run build:deploy` → `dist/` → `scripts/post-build.js` mirrors to `index.html` + `assets/` → `git push origin main` → CF Pages auto-deploy
+- **Cache bust:** `scripts/deploy-prep.js` stamps `src/build-info.ts` IST; `src/main.ts` unregisters legacy service workers; `AdminPanelView.ts` has `Nuke SW & Force Cache Bust`
 
 ---
 
-## 📝 Audit
+## 📝 White-Label
 
-See [`AUDIT_REPORT.md`](./AUDIT_REPORT.md) — root cause of the white-screen on “Back to Shelf”, shield fix, and minifier findings.
+- **Zero UI leakage:** `grep -rn PocketBase src/views` → 0 hits (only `src/lib/pocketbase.ts` technical import, console `CnG Cloud`)
+- **100% local-first:** `SettingsModal.ts` only Writer Name + Backup; `store.ts` login/logout are no-ops
+- **Nordic Forest theme:** `tailwind.config.js` `nordic.bgLight #f2f5f3` / `bgDark #0d1413` etc.
 
 ---
 
-**License:** Private. Built with React + Vite + Tailwind + PocketBase.
+## 📎 Links
+
+- **Live:** https://writer.tiafa.cc.cd/
+- **Web:** https://cngteam.pagezapp.cc.cd/
+- **Bugs/Feedback:** https://bugtracker.cngpnsteam2026.cc.cd/
+- **Admin:** https://writer.tiafa.cc.cd/#/adminpanel (passcode `WRITER_PANEL_LOGIN`)
+
+**License:** Private. Built with Vanilla TypeScript + Vite + Tailwind + Cloudflare Pages.
