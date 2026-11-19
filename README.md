@@ -34,6 +34,7 @@
 import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
+  define: { '__CF_ADMIN_SECRET__': JSON.stringify(process.env.WRITER_PANEL_LOGIN || process.env.VITE_WRITER_PANEL_LOGIN || '') },
   build: { outDir: "dist", assetsDir: "assets", sourcemap: false }
 });
 ```
@@ -55,7 +56,7 @@ export default defineConfig({
 ## ✨ Key Features
 
 - **Nordic Library (Bookshelf):** grid of story cards, live search (`title | content | shelf`), filter chips (`All`, `Unshelved`, custom shelves), word-count + `timeAgo` + `formatDate`, `Start writing`, delete, **Footer** with telemetry (`v2.0.0 · IST timestamp` + `Dev: CnG Soft` + `Web` + `Bugs/Feedback`)
-- **Zen Editor:** minimalist interface with auto-save, title + content `textarea` auto-resize, `Shelf` back (bulletproof unmount — `clearTimeout` + `setActiveStory(null)`), shelf picker, Export → Markdown / TXT / Print-PDF, stats bar `words · chars · readingMinutes`, `Saving...` → `Saved`, word counts & reading time
+- **Zen Editor:** minimalist interface with 30s auto-save, title `input#story-title` + content `textarea` auto-resize, `Shelf` back (bulletproof unmount — flush + `setActiveStory(null)`), shelf picker, Export → Markdown / TXT / Print-PDF, stats bar `words · chars · readingMinutes`, `Unsaved changes` → `Saved`, word counts & reading time
 - **TopBar:** Nordic header, `Private & Local` badge (emerald dot), `Export All`, `Import`, `+ New story`, `Settings` (⚙️)
 - **Library Settings & Backup (SettingsModal):** `Library Settings & Backup` title, Writer Profile `Local Sanctuary · 100% Private on this device`, Writer Name input (persisted `cngwriter:settings`), Backup `Export JSON` / `Import JSON` (no login form)
 - **Nordic Forest Theme:** Deep forest dark mode (`#0d1413`) and soft stone light mode (`#f2f5f3`), `cngwriter:theme` + `documentElement` class toggle in Bookshelf
@@ -88,7 +89,7 @@ src/state/store.ts — Vanilla Store (pub/sub)
 src/views/
   TopBar.ts        → CnG logo, Private & Local badge, Export All / Import / New story / Settings
   Bookshelf.ts     → search + shelf chips + story cards + ${renderFooter()}
-  Editor.ts        → title/content textarea + autoResize + scheduleSave 200ms + Export/Print
+  Editor.ts        → input#story-title + content textarea + autoResize + 30s debounced scheduleSave + Export/Print
   SettingsModal.ts → #settings-modal-backdrop, Library Settings & Backup, Writer Name, Export/Import JSON
   Toast.ts         → store.toasts → floating container
   Footer.ts        → Dev: CnG Soft · Web https://cngteam.pagezapp.cc.cd/ · Bugs https://bugtracker.cngpnsteam2026.cc.cd/ · v2.0.0 · IST
@@ -108,7 +109,7 @@ src/utils/logger.ts → SystemLogger (INFO/WARN/ERROR/ACTION)
 **Key invariants:**
 - No React — no `useEffect` cleanup bugs; all timers use explicit `clearTimeout`.
 - No direct mutation — `store.stories = store.stories.map(s => ...)` + `schedulePersist()`.
-- Editor autosave is *only* writer (200ms debounce); cloud sync is stubbed/no-op in white-label.
+- Editor autosave is *only* writer (30s debounce → `Unsaved changes` → `Saved`, flush on leave); cloud sync is stubbed/no-op in white-label.
 - Route is hash-based: `#/adminpanel` → Admin, else `activeStoryId` decides shelf/editor.
 
 ---

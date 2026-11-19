@@ -8,6 +8,7 @@ export function renderEditor(storyId: string): HTMLElement {
 
   const container = document.createElement("div");
   container.className = "min-h-[calc(100vh-4rem)] bg-nordic-bgLight dark:bg-nordic-bgDark transition-colors duration-200";
+  container.setAttribute("data-editor-id", storyId);
 
   if (!story) {
     container.innerHTML = `
@@ -69,12 +70,13 @@ export function renderEditor(storyId: string): HTMLElement {
     <!-- Zen Writing Pad -->
     <div class="mx-auto max-w-3xl px-5 py-10">
       <div class="rounded-2xl border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark p-8 shadow-sm">
-        <textarea
-          id="editor-title"
-          rows="1"
-          placeholder="Untitled Story"
-          class="w-full resize-none overflow-hidden bg-transparent font-serif text-[30px] font-semibold leading-tight text-nordic-textLight dark:text-nordic-textDark outline-none placeholder:text-nordic-mutedLight/50 dark:placeholder:text-nordic-mutedDark/50"
-        >${localTitle}</textarea>
+        <input 
+          id="story-title" 
+          type="text" 
+          placeholder="Story Title..." 
+          value="" 
+          class="w-full bg-transparent font-serif text-2xl md:text-3xl font-bold text-nordic-textLight dark:text-nordic-textDark outline-none mb-3 placeholder:opacity-30 focus:border-b focus:border-nordic-accentLight dark:focus:border-nordic-accentDark transition-all"
+        />
 
         <div class="mt-2 font-mono text-[11px] text-nordic-mutedLight dark:text-nordic-mutedDark">
           ${shelfName} · Last edited ${formatDate(story.updatedAt)}
@@ -97,35 +99,46 @@ export function renderEditor(storyId: string): HTMLElement {
     </div>
   `;
 
-  // Autoresize utility
+  // Autoresize utility for content textarea
   const autoResize = (el: HTMLTextAreaElement) => {
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   };
 
-  const titleEl = container.querySelector("#editor-title") as HTMLTextAreaElement;
+  const titleEl = container.querySelector("#story-title") as HTMLInputElement;
   const contentEl = container.querySelector("#editor-content") as HTMLTextAreaElement;
   const saveIndEl = container.querySelector("#save-indicator") as HTMLElement;
   const statsEl = container.querySelector("#stats-text") as HTMLElement;
 
-  if (titleEl) autoResize(titleEl);
+  // Set title input value safely (avoid HTML escaping issues)
+  if (titleEl) {
+    titleEl.value = localTitle || "";
+  }
+
   if (contentEl) autoResize(contentEl);
 
+  const flushSave = () => {
+    if (autosaveTimer !== null) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+    const finalTitle = localTitle.trim() ? localTitle.trim() : "Untitled Story";
+    store.updateStory(storyId, { title: finalTitle, content: localContent });
+    saveIndEl.innerText = "Saved";
+    saveIndEl.className = "font-mono text-[11px] text-nordic-accentLight dark:text-nordic-accentDark";
+  };
+
   const scheduleSave = () => {
-    saveIndEl.innerText = "Saving...";
+    saveIndEl.innerText = "Unsaved changes";
     saveIndEl.className = "font-mono text-[11px] text-amber-500 animate-pulse";
     if (autosaveTimer !== null) clearTimeout(autosaveTimer);
     autosaveTimer = window.setTimeout(() => {
-      store.updateStory(storyId, { title: localTitle, content: localContent });
-      saveIndEl.innerText = "Saved";
-      saveIndEl.className = "font-mono text-[11px] text-nordic-accentLight dark:text-nordic-accentDark";
-      autosaveTimer = null;
-    }, 200);
+      flushSave();
+    }, 30000);
   };
 
   titleEl?.addEventListener("input", (e) => {
-    localTitle = (e.target as HTMLTextAreaElement).value;
-    autoResize(titleEl);
+    localTitle = (e.target as HTMLInputElement).value;
     scheduleSave();
   });
 
@@ -136,18 +149,20 @@ export function renderEditor(storyId: string): HTMLElement {
     scheduleSave();
   });
 
-  // Back to Shelf
+  // Back to Shelf — flush pending save before navigating
   container.querySelector("#btn-back")?.addEventListener("click", () => {
     if (autosaveTimer !== null) {
-      clearTimeout(autosaveTimer);
-      store.updateStory(storyId, { title: localTitle, content: localContent });
+      flushSave();
     }
     store.setActiveStory(null);
   });
 
-  // Shelf Dropdown
+  // Shelf Dropdown — flush title/content first, then update category
   const selectShelf = container.querySelector("#select-shelf") as HTMLSelectElement;
   selectShelf?.addEventListener("change", () => {
+    if (autosaveTimer !== null) {
+      flushSave();
+    }
     store.updateStory(storyId, { categoryId: selectShelf.value });
   });
 
@@ -159,13 +174,13 @@ export function renderEditor(storyId: string): HTMLElement {
     expMenu?.classList.toggle("hidden", !exportMenuOpen);
   });
 
-  const slug = slugify(localTitle || "untitled");
+  const getSlug = () => slugify(localTitle?.trim() || "untitled");
   container.querySelector("#exp-md")?.addEventListener("click", () => {
-    downloadFile(`${slug}.md`, storyToMarkdown({ ...story, title: localTitle, content: localContent }, shelfName), "text/markdown");
+    downloadFile(`${getSlug()}.md`, storyToMarkdown({ ...story, title: localTitle, content: localContent }, shelfName), "text/markdown");
     expMenu?.classList.add("hidden");
   });
   container.querySelector("#exp-txt")?.addEventListener("click", () => {
-    downloadFile(`${slug}.txt`, storyToPlainText({ ...story, title: localTitle, content: localContent }, shelfName), "text/plain");
+    downloadFile(`${getSlug()}.txt`, storyToPlainText({ ...story, title: localTitle, content: localContent }, shelfName), "text/plain");
     expMenu?.classList.add("hidden");
   });
   container.querySelector("#exp-pdf")?.addEventListener("click", () => {
@@ -173,12 +188,24 @@ export function renderEditor(storyId: string): HTMLElement {
     expMenu?.classList.add("hidden");
   });
 
-  // Delete
+  // Delete — flush not needed, just delete
   container.querySelector("#btn-delete")?.addEventListener("click", () => {
     if (confirm("Delete this story?")) {
+      if (autosaveTimer !== null) clearTimeout(autosaveTimer);
       store.deleteStory(storyId);
     }
   });
+
+  // Also flush on page unload / hash change protection
+  const handleBeforeUnload = () => {
+    if (autosaveTimer !== null) {
+      const finalTitle = localTitle.trim() ? localTitle.trim() : "Untitled Story";
+      // synchronous save via store is async scheduled, but we try to persist directly
+      // Use direct storage save for unload reliability
+      store.updateStory(storyId, { title: finalTitle, content: localContent });
+    }
+  };
+  window.addEventListener("beforeunload", handleBeforeUnload, { once: true });
 
   return container;
 }
