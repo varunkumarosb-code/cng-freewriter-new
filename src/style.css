@@ -53,3 +53,35 @@ textarea::-webkit-scrollbar-thumb {
   background: rgba(120, 120, 120, 0.2);
   border-radius: 4px;
 }
+
+/* Zen Focus Mode */
+.zen-active {
+  opacity: 1 !important;
+  transition: opacity 0.2s ease-in-out;
+}
+.zen-dimmed {
+  opacity: 0.3 !important;
+  transition: opacity 0.2s ease-in-out;
+}
+.zen-paragraph {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Typewriter Mode - bottom padding allows last lines to center */
+.typewriter-active {
+  padding-bottom: 50vh !important;
+  min-height: 50vh;
+}
+.typewriter-container {
+  scroll-behavior: smooth;
+}
+
+/* Contenteditable placeholder */
+[contenteditable=true]:empty:before {
+  content: attr(data-placeholder);
+  color: rgba(120, 120, 120, 0.5);
+  pointer-events: none;
+}
+.dark [contenteditable=true]:empty:before {
+  color: rgba(160, 160, 160, 0.5);
+}
