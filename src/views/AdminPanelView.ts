@@ -40,7 +40,8 @@ export function renderAdminPanel(): HTMLElement {
     form?.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = (container.querySelector('#admin-passcode') as HTMLInputElement).value;
-      const expectedSecret = localStorage.getItem('WRITER_PANEL_SECRET') || BUILD_INFO.adminSecretDefault;
+      const injectedSecret = (typeof __CF_ADMIN_SECRET__ !== 'undefined' && __CF_ADMIN_SECRET__) ? __CF_ADMIN_SECRET__ : '';
+      const expectedSecret = localStorage.getItem('WRITER_PANEL_SECRET') || injectedSecret || BUILD_INFO.adminSecretDefault || 'WRITER_PANEL_LOGIN';
 
       if (input === expectedSecret) {
         isAdminAuthenticated = true;
