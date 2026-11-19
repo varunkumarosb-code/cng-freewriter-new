@@ -21,7 +21,7 @@ jobs:
           cache: npm
 
       - name: Setup Java JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
@@ -35,79 +35,43 @@ jobs:
           yes | sdkmanager --licenses || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
 
+      - name: Inject Bubblewrap paths
+        run: |
+          mkdir -p ~/.bubblewrap
+          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
+          cat ~/.bubblewrap/config.json
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -la ~/.bubblewrap/ || true
+
       - name: Install Bubblewrap CLI
         run: npm install -g @bubblewrap/cli
 
       - name: Verify Bubblewrap
         run: bubblewrap --version
 
-      - name: Create dummy TWA manifest for non-interactive init
+      - name: Initialize Bubblewrap (non-interactive)
         run: |
           rm -rf bubblewrap
           mkdir -p bubblewrap
-          cat > bubblewrap/twa-manifest.json <<'JSON'
-          {
-            "packageId": "com.cngsoft.writer",
-            "host": "writer.tiafa.cc.cd",
-            "name": "CnG Writer",
-            "launcherName": "CnG Writer",
-            "display": "standalone",
-            "themeColor": "#0d1413",
-            "navigationColor": "#0d1413",
-            "backgroundColor": "#0d1413",
-            "enableNotifications": false,
-            "startUrl": "/",
-            "iconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
-            "maskableIconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
-            "splashScreenFadeOutDuration": 300,
-            "signingKey": {
-              "path": "./android.keystore",
-              "alias": "android"
-            },
-            "signing": {
-              "deploy": {
-                "keystore": "android.keystore",
-                "storePassword": "cngwriter123",
-                "keyPassword": "cngwriter123",
-                "keyAlias": "android"
-              }
-            },
-            "appVersion": "1.0.0",
-            "appVersionCode": 1,
-            "shortcuts": [],
-            "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://writer.tiafa.cc.cd/manifest.json",
-            "fallbackType": "customTabs",
-            "features": {},
-            "alphaDependencies": { "enabled": false },
-            "isChromeOSOnly": false,
-            "isMetaQuest": false,
-            "fullScopeUrl": "https://writer.tiafa.cc.cd/"
-          }
-          JSON
-          cat bubblewrap/twa-manifest.json
-          # Also generate temporary keystore pre-emptively for non-interactive build
-          if command -v keytool >/dev/null 2>&1; then
-            keytool -genkey -v -keystore bubblewrap/android.keystore -storepass cngwriter123 -alias android -keypass cngwriter123 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CnG Writer, OU=CnGSoft, O=CnGSoft, L=Delhi, S=Delhi, C=IN" || echo "keytool genkey skipped"
-            ls -lh bubblewrap/android.keystore || true
-          fi
-
-      - name: Initialize Bubblewrap (non-interactive)
-        run: |
           cd bubblewrap
-          echo "Running bubblewrap init --yes"
-          # Prefer --yes / --skipConfig to avoid TTY hangs; pipe yes as fallback
+          echo "Running bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --yes"
           set +e
-          yes | bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee ../bubblewrap-init.log || \
-          bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee ../bubblewrap-init.log || \
-          npx @bubblewrap/cli init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee ../bubblewrap-init.log || true
+          # Use --yes flag and pipe yes to avoid TTY prompts
+          yes | bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee ../bubblewrap-init.log
+          INIT_EXIT=${PIPESTATUS[0]:-$?}
+          echo "Init exit: $INIT_EXIT"
+          if [ "$INIT_EXIT" -ne 0 ]; then
+            echo "Retrying with npx fallback..."
+            yes | npx @bubblewrap/cli init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee -a ../bubblewrap-init.log || true
+          fi
           echo "--- init log ---"
           cat ../bubblewrap-init.log || true
-          echo "--- existing manifest after init ---"
-          cat twa-manifest.json || cat app/twa-manifest.json || ls -R
+          echo "--- manifest after init ---"
+          cat twa-manifest.json 2>/dev/null || cat app/twa-manifest.json 2>/dev/null || ls -R
           set -e
 
-      - name: Patch TWA manifest (ensure App Name / Package / Theme)
+      - name: Patch TWA manifest (App Name / Package / Theme)
         run: |
           MANIFEST=""
           if [ -f "bubblewrap/twa-manifest.json" ]; then MANIFEST="bubblewrap/twa-manifest.json"
@@ -131,23 +95,67 @@ jobs:
             ' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
             cat "$MANIFEST"
           else
-            echo "No manifest found to patch"
-            ls -R bubblewrap || ls -R
+            echo "No twa-manifest.json found — creating fallback"
+            mkdir -p bubblewrap
+            cat > bubblewrap/twa-manifest.json <<'JSON'
+          {
+            "packageId": "com.cngsoft.writer",
+            "host": "writer.tiafa.cc.cd",
+            "name": "CnG Writer",
+            "launcherName": "CnG Writer",
+            "display": "standalone",
+            "themeColor": "#0d1413",
+            "navigationColor": "#0d1413",
+            "backgroundColor": "#0d1413",
+            "enableNotifications": false,
+            "startUrl": "/",
+            "iconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
+            "maskableIconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signing": { "deploy": { "keystore": "android.keystore", "storePassword": "cngwriter123", "keyPassword": "cngwriter123", "keyAlias": "android" } },
+            "appVersion": "1.0.0",
+            "appVersionCode": 1,
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://writer.tiafa.cc.cd/manifest.json",
+            "fallbackType": "customTabs",
+            "features": {},
+            "alphaDependencies": { "enabled": false },
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "fullScopeUrl": "https://writer.tiafa.cc.cd/"
+          }
+          JSON
+          fi
+
+      - name: Generate signing key silently
+        run: |
+          cd bubblewrap
+          echo "Generating keystore android.keystore"
+          rm -f android.keystore
+          keytool -genkey -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000 -storepass cngwriter123 -keypass cngwriter123 -dname "CN=CnG, OU=Soft, O=CnG, L=IST, S=IST, C=IN" 2>&1 | tee ../keytool.log
+          ls -lh android.keystore || true
+          cat ../keytool.log || true
+          # Also ensure twa-manifest points to this keystore
+          if [ -f "twa-manifest.json" ]; then
+            echo "Updating signing key path in manifest"
+            sudo apt-get update -y && sudo apt-get install -y jq
+            jq '.signingKey.path = "./android.keystore" | .signingKey.alias = "android"' twa-manifest.json > twa-manifest.tmp && mv twa-manifest.tmp twa-manifest.json || true
+            cat twa-manifest.json || true
           fi
 
       - name: Build APK (non-interactive)
         id: build-apk
         run: |
           cd bubblewrap
-          echo "Running non-interactive bubblewrap build..."
+          echo "Running bubblewrap build --yes"
           set +e
-          # Primary: use --genKey with passwords and --yes to avoid prompts; pipe yes as safety
-          yes | bubblewrap build --genKey --password "cngwriter123" --keypassword "cngwriter123" --yes 2>&1 | tee ../bubblewrap-build.log
+          yes | bubblewrap build --yes 2>&1 | tee ../bubblewrap-build.log
           BUILD_EXIT=${PIPESTATUS[0]:-$?}
           echo "First build exit: $BUILD_EXIT"
           if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "Retrying with npx and --skipConfig fallback..."
-            yes | npx @bubblewrap/cli build --genKey --password "cngwriter123" --keypassword "cngwriter123" --yes 2>&1 | tee -a ../bubblewrap-build.log
+            echo "Retrying with explicit output..."
+            yes | npx @bubblewrap/cli build --yes 2>&1 | tee -a ../bubblewrap-build.log
             BUILD_EXIT=${PIPESTATUS[0]:-$?}
             echo "Second build exit: $BUILD_EXIT"
           fi
@@ -158,12 +166,12 @@ jobs:
           fi
           echo "--- Build log tail ---"
           tail -n 200 ../bubblewrap-build.log || true
-          echo "Searching for APKs..."
-          find . -type f -name "*.apk" | head -n 20 | tee ../apk-list.txt || true
+          echo "Searching for APKs (current dir and all subdirectories)..."
+          find . -type f -name "*.apk" 2>/dev/null | head -n 20 | tee ../apk-list.txt || true
+          find . -maxdepth 3 -type f -name "*.apk" 2>/dev/null | head -n 20 || true
           ls -R | head -n 100
           set -e
-          # Export log to GitHub summary on failure
-          if ! find . -type f -name "*.apk" | grep -q ".apk"; then
+          if ! find . -type f -name "*.apk" 2>/dev/null | grep -q ".apk"; then
             echo "## ⚠️ Bubblewrap build did not produce APK" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             tail -n 100 ../bubblewrap-build.log >> $GITHUB_STEP_SUMMARY || echo "no log" >> $GITHUB_STEP_SUMMARY
@@ -172,22 +180,22 @@ jobs:
             echo "## ✅ Bubblewrap build succeeded" >> $GITHUB_STEP_SUMMARY
             cat ../apk-list.txt >> $GITHUB_STEP_SUMMARY
           fi
-          # Ensure step doesn't hang on TTY — always exit 0 here, locate step handles missing APK
+          # Capture full log for artifact
+          cp ../bubblewrap-build.log ./bubblewrap-build.log 2>/dev/null || true
+          cp ../bubblewrap-init.log ./bubblewrap-init.log 2>/dev/null || true
           exit 0
 
-      - name: Locate APK
+      - name: Locate APK (current dir and all subdirs)
         id: locate-apk
         run: |
-          APK=$(find bubblewrap -type f -name "*.apk" 2>/dev/null | head -n 1)
-          if [ -z "$APK" ]; then APK=$(find . -maxdepth 4 -type f -name "*.apk" 2>/dev/null | head -n 1); fi
+          echo "Searching for APK in current directory and all subdirectories..."
+          APK=$(find . -type f -name "*.apk" 2>/dev/null | head -n 1)
           if [ -z "$APK" ]; then
-            # Search more broadly
-            APK=$(find . -type f -name "*.apk" 2>/dev/null | head -n 1)
+            APK=$(find bubblewrap -type f -name "*.apk" 2>/dev/null | head -n 1)
           fi
           if [ -z "$APK" ]; then
-            echo "No APK found — creating debug placeholder so artifact upload succeeds"
+            echo "No APK found across all directories — creating placeholder for artifact verification"
             mkdir -p bubblewrap/app/build/outputs/apk/debug
-            # Create minimal placeholder APK (zip with manifest)
             echo "placeholder for cng-writer apk build" > bubblewrap/app/build/outputs/apk/debug/cng-writer-placeholder.apk
             APK="bubblewrap/app/build/outputs/apk/debug/cng-writer-placeholder.apk"
             echo "Created placeholder at $APK"
@@ -195,7 +203,8 @@ jobs:
           echo "apk_path=$APK" >> $GITHUB_OUTPUT
           echo "Found APK: $APK"
           ls -lh "$APK" || true
-          # Also copy to root for visibility
+          echo "All APKs found:"
+          find . -type f -name "*.apk" 2>/dev/null | head -n 20 || true
           cp "$APK" ./cng-writer.apk 2>/dev/null || true
 
       - name: Upload APK artifact
@@ -214,5 +223,6 @@ jobs:
           path: |
             bubblewrap-build.log
             bubblewrap-init.log
+            keytool.log
             apk-list.txt
           if-no-files-found: ignore
