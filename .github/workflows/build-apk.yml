@@ -27,12 +27,14 @@ jobs:
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           export ANDROID_HOME=/usr/local/lib/android/sdk
+          # Accepting licenses silently
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Setup Bubblewrap CLI & Config
         run: |
           npm install -g @bubblewrap/cli
           mkdir -p ~/.bubblewrap
+          # Injecting paths to avoid interactive prompts
           cat <<EOF > ~/.bubblewrap/config.json
           {
             "jdkPath": "$JAVA_HOME",
@@ -40,7 +42,7 @@ jobs:
           }
           EOF
 
-      - name: Generate Signing Keystore
+      - name: Generate Signing Keystore (Self-Signed)
         run: |
           keytool -genkey -v -keystore android.keystore -alias android \
             -keyalg RSA -keysize 2048 -validity 10000 \
@@ -49,20 +51,19 @@ jobs:
 
       - name: Initialize & Build APK via Bubblewrap
         run: |
-          # Initialize headless from manifest
+          # Headless init from manifest
           bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --skipConfig
           
-          # Build APK with keystore credentials
-          bubblewrap build \
+          # Build APK with the keystore we just made
+          yes | bubblewrap build \
             --signingKeyPath ./android.keystore \
             --signingKeyAlias android \
             --password cngwriter123 \
-            --keyPassword cngwriter123 || (cd app && ./gradlew assembleRelease || ./gradlew assembleDebug)
+            --keyPassword cngwriter123 || (cd app && ./gradlew assembleRelease)
 
       - name: Locate & Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: cng-writer-apk
-          path: |
-            **/*.apk
-          retention-days: 14
+          path: "**/*.apk"
+          retention-days: 7
