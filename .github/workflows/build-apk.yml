@@ -44,6 +44,13 @@ jobs:
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
           npx cap sync android
 
+      - name: Apply Custom App Icons
+        run: |
+          if [ -d "resources/android" ]; then
+            cp -rf resources/android/* android/app/src/main/res/
+            echo "Custom Nordic Leaf icons copied successfully!"
+          fi
+
       - name: Build Android Debug APK
         run: |
           cd android
