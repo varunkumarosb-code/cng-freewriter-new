@@ -1,7 +1,7 @@
 import { store } from "../state/store";
 import { countWords, formatDate, readingMinutes, slugify } from "../lib/format";
 import { downloadFile, printStoryPDF, storyToMarkdown, storyToPlainText } from "../lib/backup";
-import { getEffectiveShelfName } from "../lib/storage";
+import { getEffectiveShelfName, getAutosaveDelayMs } from "../lib/storage";
 
 export function renderEditor(storyId: string): HTMLElement {
   const story = store.stories.find((s) => s.id === storyId);
@@ -134,7 +134,7 @@ export function renderEditor(storyId: string): HTMLElement {
     if (autosaveTimer !== null) clearTimeout(autosaveTimer);
     autosaveTimer = window.setTimeout(() => {
       flushSave();
-    }, 30000);
+    }, getAutosaveDelayMs());
   };
 
   titleEl?.addEventListener("input", (e) => {

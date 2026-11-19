@@ -10,6 +10,22 @@ import {
   saveStories,
   saveTheme,
 } from "../lib/storage";
+
+// Autosave delay helper — also available from src/lib/storage.ts
+const KEY_AUTOSAVE_DELAY = "cng_autosave_delay_sec";
+export function getAutosaveDelayMs(): number {
+  try {
+    const raw = localStorage.getItem(KEY_AUTOSAVE_DELAY);
+    if (raw !== null) {
+      const sec = parseInt(raw, 10);
+      if (!Number.isNaN(sec)) {
+        const clamped = Math.min(60, Math.max(1, sec));
+        return clamped * 1000;
+      }
+    }
+  } catch {}
+  return 5000;
+}
 import { buildBackup, parseBackup } from "../lib/backup";
 import { deleteRemoteStory, fetchRemoteStories, pb, queueSyncToPB } from "../lib/pocketbase";
 

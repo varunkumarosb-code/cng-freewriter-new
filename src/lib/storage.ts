@@ -79,6 +79,33 @@ export function saveTheme(theme: Theme) {
   try { localStorage.setItem(KEY_THEME, theme); } catch {}
 }
 
+const KEY_AUTOSAVE_DELAY = "cng_autosave_delay_sec";
+
+export function getAutosaveDelayMs(): number {
+  try {
+    const raw = localStorage.getItem(KEY_AUTOSAVE_DELAY);
+    if (raw !== null) {
+      const sec = parseInt(raw, 10);
+      if (!Number.isNaN(sec)) {
+        const clamped = Math.min(60, Math.max(1, sec));
+        return clamped * 1000;
+      }
+    }
+  } catch {}
+  return 5000;
+}
+
+export function getAutosaveDelaySec(): number {
+  return Math.round(getAutosaveDelayMs() / 1000);
+}
+
+export function setAutosaveDelaySec(sec: number): void {
+  try {
+    const clamped = Math.min(60, Math.max(1, Math.round(sec)));
+    localStorage.setItem(KEY_AUTOSAVE_DELAY, String(clamped));
+  } catch {}
+}
+
 export function getEffectiveShelfName(story: Story, categories: Category[]): string {
   if (!story.categoryId) return "Unshelved";
   const c = categories.find((cat) => cat.id === story.categoryId);
