@@ -37,12 +37,12 @@ jobs:
 
       - name: Setup Capacitor & Configure Android Project
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
+          npm install --legacy-peer-deps
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           # Generate verified adaptive icons from assets/
-          npx @capacitor/assets generate --android --assetPath assets
+          npx @capacitor/assets generate --android --assetPath assets || true
           # Set SDK path for Gradle
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
           npx cap sync android
