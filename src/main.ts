@@ -5,6 +5,7 @@ import { renderBookshelf } from './views/Bookshelf';
 import { renderEditor } from './views/Editor';
 import { renderAdminPanel } from './views/AdminPanelView';
 import { logger } from './utils/logger';
+import { autoRecoverIfEmpty } from './lib/deviceBackup';
 import { renderToasts } from './views/Toast';
 
 // PWA: Register lightweight Service Worker (network-first, Cloudflare-friendly)
@@ -137,6 +138,6 @@ window.addEventListener('hashchange', () => {
   renderApp(true);
 });
 
-// Initial boot
+// Initial boot — attempt device auto-recover then render
 logger.info('APP', 'CnG Writer initialized');
-renderApp(true);
+void autoRecoverIfEmpty().finally(() => renderApp(true));

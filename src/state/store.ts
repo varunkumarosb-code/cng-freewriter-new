@@ -11,6 +11,7 @@ import {
   saveTheme,
 } from "../lib/storage";
 import { logger } from "../utils/logger";
+import { backupToDeviceStorage } from "../lib/deviceBackup";
 
 // Autosave delay helper — also available from src/lib/storage.ts
 const KEY_AUTOSAVE_DELAY = "cng_autosave_delay_sec";
@@ -66,6 +67,8 @@ class Store {
     }
   }
 
+  private deviceBackupTimer: number | null = null;
+
   private schedulePersist() {
     if (this.saveTimer !== null) clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => {
@@ -74,6 +77,15 @@ class Store {
       saveSettings(this.settings);
       this.saveTimer = null;
     }, 150);
+    // Debounced device backup to Documents/CnG-Writer/ (native only)
+    if (this.deviceBackupTimer !== null) clearTimeout(this.deviceBackupTimer);
+    this.deviceBackupTimer = window.setTimeout(() => {
+      try {
+        const payload = JSON.stringify({ stories: this.stories, categories: this.categories, settings: this.settings, exportedAt: new Date().toISOString(), version: 1 });
+        void backupToDeviceStorage(payload);
+      } catch {}
+      this.deviceBackupTimer = null;
+    }, 800);
   }
 
   setActiveStory(id: string | null) {

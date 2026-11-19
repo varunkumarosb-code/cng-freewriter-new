@@ -1,6 +1,9 @@
 import { store } from '../state/store';
 import { logger } from '../utils/logger';
 import { saveStories, saveCategories } from '../lib/storage';
+import { getSyncKey, setSyncKey, regenerateSyncKey } from '../lib/syncKey';
+import { restoreFromDeviceStorage } from '../lib/deviceBackup';
+import { Capacitor } from '@capacitor/core';
 
 export function openSettingsModal() {
   const existing = document.getElementById('settings-modal-backdrop');
@@ -10,8 +13,11 @@ export function openSettingsModal() {
   backdrop.id = 'settings-modal-backdrop';
   backdrop.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4';
 
+  const isNative = Capacitor.isNativePlatform();
+  const currentKey = getSyncKey();
+
   backdrop.innerHTML = `
-    <div class="bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 text-nordic-textLight dark:text-nordic-textDark space-y-6">
+    <div class="bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 text-nordic-textLight dark:text-nordic-textDark space-y-6 max-h-[90vh] overflow-y-auto">
       
       <!-- Header -->
       <div class="flex items-center justify-between pb-3 border-b border-nordic-borderLight dark:border-nordic-borderDark">
@@ -35,6 +41,41 @@ export function openSettingsModal() {
         <p class="text-[12px] leading-relaxed text-nordic-mutedLight dark:text-nordic-mutedDark">
           All drafts and categories live strictly in your browser's sandboxed storage. Zero remote tracking, zero cloud leakage.
         </p>
+      </div>
+
+      <!-- Sanctuary Sync & Device Protection -->
+      <div class="space-y-3 p-4 rounded-xl bg-nordic-bgLight dark:bg-nordic-bgDark border border-nordic-borderLight dark:border-nordic-borderDark">
+        <div class="flex items-center justify-between">
+          <span class="text-xs uppercase tracking-wider font-semibold text-nordic-mutedLight dark:text-nordic-mutedDark">Sanctuary Sync & Device Protection</span>
+          <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-nordic-accentLight/10 dark:bg-nordic-accentDark/10 text-nordic-accentLight dark:text-nordic-accentDark font-bold">Universal Key</span>
+        </div>
+        
+        <div class="space-y-2">
+          <label class="text-[11px] font-semibold text-nordic-mutedLight dark:text-nordic-mutedDark uppercase tracking-wider">Sanctuary Sync Key</label>
+          <div class="flex gap-2">
+            <input id="sync-key-input" type="text" readonly value="${currentKey}" class="flex-1 px-3 py-2 rounded-xl bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark text-xs font-mono font-bold text-nordic-textLight dark:text-nordic-textDark tracking-wider select-all outline-none focus:border-nordic-accentLight dark:focus:border-nordic-accentDark" />
+            <button id="btn-copy-key" class="px-3 py-2 rounded-xl bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark hover:border-nordic-accentLight dark:hover:border-nordic-accentDark text-xs font-semibold transition-colors flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-nordic-accentLight dark:text-nordic-accentDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v3"/></svg>
+              Copy Key
+            </button>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-regenerate-key" class="flex-1 px-3 py-2 rounded-xl bg-nordic-accentLight dark:bg-nordic-accentDark text-white dark:text-nordic-bgDark text-xs font-bold hover:opacity-90 transition-opacity">Regenerate</button>
+            <span class="flex-1 text-[11px] leading-relaxed text-nordic-mutedLight dark:text-nordic-mutedDark flex items-center">Keep this key safe to sync across devices.</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark">
+          <span class="h-2 w-2 rounded-full ${isNative ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+          <span class="text-xs font-medium text-nordic-textLight dark:text-nordic-textDark">${isNative ? 'Auto-backup active (/Documents/CnG-Writer/)' : 'Browser Sandboxed'}</span>
+          <span class="ml-auto text-[10px] font-mono px-2 py-1 rounded-full ${isNative ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'} font-bold">${isNative ? 'Native' : 'Web'}</span>
+        </div>
+
+        <button id="btn-restore-device" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-nordic-accentLight dark:border-nordic-accentDark bg-nordic-accentLight/10 dark:bg-nordic-accentDark/10 hover:bg-nordic-accentLight dark:hover:bg-nordic-accentDark hover:text-white dark:hover:text-nordic-bgDark text-nordic-accentLight dark:text-nordic-accentDark font-semibold text-xs transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+          Restore from Device Storage
+        </button>
+        <p class="text-[11px] leading-relaxed text-nordic-mutedLight dark:text-nordic-mutedDark">Scans your phone's Documents folder (CnG-Writer/cng_writer_backup.json) to reload backup.</p>
       </div>
 
       <!-- Library Backup / Restore -->
@@ -69,6 +110,83 @@ export function openSettingsModal() {
   backdrop.querySelector('#btn-close-modal')?.addEventListener('click', () => backdrop.remove());
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) backdrop.remove();
+  });
+
+  // --- Sanctuary Sync Key Handlers ---
+  const syncInput = backdrop.querySelector('#sync-key-input') as HTMLInputElement | null;
+  backdrop.querySelector('#btn-copy-key')?.addEventListener('click', async () => {
+    const key = syncInput?.value || getSyncKey();
+    try {
+      await navigator.clipboard.writeText(key);
+      store.toast('Sync key copied to clipboard', 'ok');
+      logger.action('SYNC', 'Copied sync key');
+    } catch {
+      // Fallback: select input
+      if (syncInput) {
+        syncInput.select();
+        document.execCommand('copy');
+        store.toast('Sync key copied', 'ok');
+      }
+    }
+  });
+
+  backdrop.querySelector('#btn-regenerate-key')?.addEventListener('click', () => {
+    try {
+      if (!confirm('Regenerate Sanctuary Sync Key? Old key will be invalid.')) return;
+      const fresh = regenerateSyncKey();
+      if (syncInput) syncInput.value = fresh;
+      store.toast('Sync key regenerated', 'ok');
+      logger.action('SYNC', `Regenerated sync key: ${fresh}`);
+    } catch (err) {
+      store.toast('Failed to regenerate key', 'error');
+    }
+  });
+
+  // Allow manual editing: if user pastes custom key, validate on blur
+  syncInput?.addEventListener('change', () => {
+    const val = syncInput.value.trim().toUpperCase();
+    if (!val) return;
+    try {
+      setSyncKey(val);
+      syncInput.value = val;
+      store.toast('Sync key updated', 'ok');
+    } catch {
+      store.toast('Invalid key format. Use CNG-XXXX-XXXX-XXXX', 'error');
+      syncInput.value = getSyncKey();
+    }
+  });
+
+  // --- Restore from Device Storage ---
+  backdrop.querySelector('#btn-restore-device')?.addEventListener('click', async () => {
+    const btn = backdrop.querySelector('#btn-restore-device') as HTMLButtonElement;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Scanning...';
+    btn.setAttribute('disabled', 'true');
+    try {
+      const payload = await restoreFromDeviceStorage();
+      if (!payload || !Array.isArray(payload.stories)) {
+        store.toast('No device backup found in Documents/CnG-Writer/', 'error');
+        logger.warn('DEVICE_BACKUP', 'No backup found on restore button');
+        return;
+      }
+      // Merge using existing import logic
+      const jsonStr = JSON.stringify(payload);
+      const success = store.importBackupText(jsonStr);
+      if (success) {
+        store.toast(`Restored ${payload.stories.length} stories from device backup`, 'ok');
+        logger.action('DEVICE_BACKUP', `Manual restore: ${payload.stories.length} stories`);
+        setTimeout(() => {
+          backdrop.remove();
+          window.location.reload();
+        }, 800);
+      }
+    } catch (err) {
+      store.toast('Restore failed', 'error');
+      logger.error('DEVICE_BACKUP', 'Manual restore failed', err);
+    } finally {
+      btn.innerHTML = original;
+      btn.removeAttribute('disabled');
+    }
   });
 
   // Export JSON
