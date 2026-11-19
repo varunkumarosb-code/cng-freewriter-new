@@ -16,6 +16,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Setup Java JDK 17
         uses: actions/setup-java@v4
@@ -23,75 +24,27 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK Environment & Licenses
+      - name: Install Dependencies & Build Web App
         run: |
-          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          npm ci
+          npm run build
 
-      - name: Setup Bubblewrap CLI & Global Config
+      - name: Setup Capacitor & Generate Android Project
         run: |
-          npm install -g @bubblewrap/cli
-          mkdir -p ~/.bubblewrap
-          cat <<EOF > ~/.bubblewrap/config.json
-          {
-            "jdkPath": "$JAVA_HOME",
-            "androidSdkPath": "/usr/local/lib/android/sdk"
-          }
-          EOF
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "CnG Writer" "com.cngsoft.writer" --web-dir dist
+          npx cap add android
+          npx cap sync android
 
-      - name: Create Self-Signed Keystore
+      - name: Build Android Debug APK via Gradle
         run: |
-          keytool -genkey -v -keystore android.keystore -alias android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass cngwriter123 -keypass cngwriter123 \
-            -dname "CN=CnG Writer, OU=Soft, O=CnG, L=IST, S=IST, C=IN"
-
-      - name: Pre-generate Non-Interactive twa-manifest.json
-        run: |
-          cat << 'EOF' > twa-manifest.json
-          {
-            "packageId": "com.cngsoft.writer",
-            "host": "writer.tiafa.cc.cd",
-            "name": "CnG Writer",
-            "launcherName": "CnG Writer",
-            "themeColor": "#131f1c",
-            "navigationColor": "#0d1413",
-            "backgroundColor": "#0d1413",
-            "startUrl": "/",
-            "iconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
-            "maskableIconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
-            "appVersionCode": 1,
-            "appVersionName": "2.0.0",
-            "signingKey": {
-              "path": "./android.keystore",
-              "alias": "android"
-            },
-            "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://writer.tiafa.cc.cd/manifest.json",
-            "fallbackType": "customtabs",
-            "features": {},
-            "alphaDependencies": {
-              "enabled": false
-            },
-            "enableNotifications": false,
-            "minSdkVersion": 21
-          }
-          EOF
-
-      - name: Build Android App via Bubblewrap & Gradle
-        run: |
-          # Build project directly from pre-defined twa-manifest without init prompts
-          npx @bubblewrap/cli build \
-            --signingKeyPath ./android.keystore \
-            --signingKeyAlias android \
-            --password cngwriter123 \
-            --keyPassword cngwriter123 \
-            --skipVersionCheck || (cd app && ./gradlew assembleRelease || ./gradlew assembleDebug)
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: cng-writer-apk
-          path: "**/*.apk"
-          retention-days: 7
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
