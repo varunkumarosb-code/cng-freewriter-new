@@ -2,16 +2,36 @@ interface Env {
   DB?: D1Database;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Accept",
+  "Content-Type": "application/json",
+};
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
+
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Accept",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
 
   // Fallback if D1 is not yet bound
   if (!env.DB) {
     return new Response(JSON.stringify({ 
       error: "D1 Database not bound. Please bind 'DB' in Cloudflare Pages dashboard.",
       offline: true 
-    }), { status: 503, headers: { "Content-Type": "application/json" } });
+    }), { status: 503, headers: corsHeaders });
   }
 
   // Ensure table exists
@@ -26,15 +46,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // GET /api/sync?key=CNG-XXXX
   if (request.method === "GET") {
     const key = url.searchParams.get("key");
-    if (!key) return new Response(JSON.stringify({ error: "Missing key" }), { status: 400 });
+    if (!key) return new Response(JSON.stringify({ error: "Missing key" }), { status: 400, headers: corsHeaders });
 
     const result = await env.DB.prepare(
       "SELECT payload, updated_at FROM sanctuary_vault WHERE sync_key = ?"
-    ).bind(key).first();
+    ).bind(key).first<{ payload: string; updated_at: number }>();
 
-    if (!result) return new Response(JSON.stringify({ found: false }), { status: 404 });
+    if (!result) return new Response(JSON.stringify({ found: false }), { status: 404, headers: corsHeaders });
     return new Response(JSON.stringify({ found: true, payload: result.payload, updated_at: result.updated_at }), {
-      headers: { "Content-Type": "application/json" }
+      headers: corsHeaders
     });
   }
 
@@ -43,7 +63,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     try {
       const body = await request.json() as { sync_key: string; payload: string; updated_at?: number };
       if (!body.sync_key || !body.payload) {
-        return new Response(JSON.stringify({ error: "Invalid body" }), { status: 400 });
+        return new Response(JSON.stringify({ error: "Invalid body" }), { status: 400, headers: corsHeaders });
       }
 
       const now = body.updated_at || Date.now();
@@ -54,12 +74,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       `).bind(body.sync_key, body.payload, now).run();
 
       return new Response(JSON.stringify({ success: true, updated_at: now }), {
-        headers: { "Content-Type": "application/json" }
+        headers: corsHeaders
       });
     } catch (e: any) {
-      return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+      return new Response(JSON.stringify({ error: e?.message || String(e) }), { status: 500, headers: corsHeaders });
     }
   }
 
-  return new Response("Method not allowed", { status: 405 });
+  return new Response("Method not allowed", { status: 405, headers: corsHeaders });
 };
