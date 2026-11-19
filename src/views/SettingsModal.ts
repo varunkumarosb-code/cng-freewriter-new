@@ -1,5 +1,4 @@
 import { store } from '../state/store';
-import { BUILD_INFO } from '../build-info';
 import { logger } from '../utils/logger';
 import { saveStories, saveCategories } from '../lib/storage';
 
@@ -57,8 +56,8 @@ export function openSettingsModal() {
 
       <!-- Build Info Footer -->
       <div class="pt-3 border-t border-nordic-borderLight dark:border-nordic-borderDark flex items-center justify-between text-[11px] font-mono text-nordic-mutedLight dark:text-nordic-mutedDark">
-        <span>Build: <strong class="text-nordic-textLight dark:text-nordic-textDark">${BUILD_INFO.version}</strong></span>
-        <span>${BUILD_INFO.deployedAtIST}</span>
+        <span>Build: <strong class="text-nordic-textLight dark:text-nordic-textDark">v${typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : '2.0.0'}</strong></span>
+        <span>${typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ' (IST)'}</span>
       </div>
 
     </div>

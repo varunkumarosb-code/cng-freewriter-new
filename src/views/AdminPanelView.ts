@@ -1,7 +1,6 @@
 import { store } from '../state/store';
 import { countWords } from '../lib/format';
 import { logger, LogEntry } from '../utils/logger';
-import { BUILD_INFO } from '../build-info';
 import { getAutosaveDelayMs, setAutosaveDelaySec } from '../lib/storage';
 
 let isAdminAuthenticated = false;
@@ -42,7 +41,7 @@ export function renderAdminPanel(): HTMLElement {
       e.preventDefault();
       const input = (container.querySelector('#admin-passcode') as HTMLInputElement).value;
       const injectedSecret = (typeof __CF_ADMIN_SECRET__ !== 'undefined' && __CF_ADMIN_SECRET__) ? __CF_ADMIN_SECRET__ : '';
-      const expectedSecret = localStorage.getItem('WRITER_PANEL_SECRET') || injectedSecret || BUILD_INFO.adminSecretDefault || 'WRITER_PANEL_LOGIN';
+      const expectedSecret = localStorage.getItem('WRITER_PANEL_SECRET') || injectedSecret || 'WRITER_PANEL_LOGIN';
 
       if (input === expectedSecret) {
         isAdminAuthenticated = true;
@@ -83,7 +82,7 @@ export function renderAdminPanel(): HTMLElement {
               <h1 class="text-2xl font-serif font-bold">CnG Writer Telemetry & Control Panel</h1>
             </div>
             <p class="text-xs text-nordic-mutedLight dark:text-nordic-mutedDark mt-1">
-              Build: <code class="text-nordic-accentLight dark:text-nordic-accentDark font-bold">${BUILD_INFO.version}</code> · Deployed: <code class="font-bold">${BUILD_INFO.deployedAtIST}</code>
+              Build: <code class="text-nordic-accentLight dark:text-nordic-accentDark font-bold">v${typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : '2.0.0'}</code> · Deployed: <code class="font-bold">${typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ' (IST)'}</code>
             </p>
           </div>
           
