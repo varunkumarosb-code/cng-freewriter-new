@@ -206,7 +206,7 @@ export function openSettingsModal() {
       setSyncKey(val);
       logger.action('SYNC', `Link & Sync: saved key ${val}`);
       store.toast('Syncing with Cloudflare Sanctuary...', 'info');
-      const result = await syncWithCloud(true);
+      const result = await syncWithCloud();
       if (result.success) {
         store.toast('Sync complete', 'ok');
         logger.info('SYNC', `Link & Sync success: ${result.message}`);
