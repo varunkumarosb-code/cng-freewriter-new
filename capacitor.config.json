@@ -1,0 +1,6 @@
+{
+  "appId": "com.cngsoft.writer",
+  "appName": "CnG Writer",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: Accept Android SDK Licenses
         run: |
@@ -44,12 +44,11 @@ jobs:
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
           npx cap sync android
 
-      - name: Apply Custom App Icons
+      - name: Generate Android Branding Assets
         run: |
-          if [ -d "resources/android" ]; then
-            cp -rf resources/android/* android/app/src/main/res/
-            echo "Custom Nordic Leaf icons copied successfully!"
-          fi
+          npm install -g @capacitor/assets
+          # This tool generates all mipmaps, adaptive icons, and XMLs automatically
+          npx @capacitor/assets generate --android --icon-background-color '#0d1413'
 
       - name: Build Android Debug APK
         run: |
