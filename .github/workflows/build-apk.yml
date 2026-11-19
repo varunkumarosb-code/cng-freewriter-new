@@ -8,9 +8,6 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,135 +25,56 @@ jobs:
 
       - name: Accept Android SDK Licenses
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Install Dependencies & Build Web App
         run: |
-          npm ci
+          npm install --legacy-peer-deps
           npm run build
 
-      - name: Setup Capacitor & Configure Android Project
+      - name: Setup Capacitor Android Project
         run: |
-          npm install --legacy-peer-deps
           if [ ! -d "android" ]; then
             npx cap add android
           fi
-          # Generate verified adaptive icons from assets/
+          # Generate icons
           npx @capacitor/assets generate --android --assetPath assets || true
-          # Set SDK path for Gradle
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
           npx cap sync android
 
       - name: Generate Permanent Keystore
         run: |
-          # Permanent deterministic keystore — same SHA-256 on every CI run
-          if [ ! -f android.keystore ]; then
-            keytool -genkey -v -keystore android.keystore -alias cngwriter -keyalg RSA -keysize 2048 -validity 36500 -storepass cngwriter2026 -keypass cngwriter2026 -dname "CN=CnG Writer, OU=CnG Soft, O=CnG, L=Global, ST=Global, C=IN"
-          fi
-          # Ensure keystore exists in both root and android/app for Gradle
-          mkdir -p android/app
-          cp android.keystore android/app/android.keystore 2>/dev/null || cp android/app/android.keystore android.keystore 2>/dev/null || true
-          cp android.keystore android/app/android.keystore 2>/dev/null || true
-          ls -lh android.keystore android/app/android.keystore || true
-          echo "Keystore fingerprint (SHA-256):"
-          keytool -list -v -keystore android.keystore -storepass cngwriter2026 -alias cngwriter | grep -E "SHA256|Valid from" || true
-          keytool -list -v -keystore android/app/android.keystore -storepass cngwriter2026 -alias cngwriter | grep -E "SHA256|Valid from" || true
+          keytool -genkey -v -keystore release.keystore -alias cngwriter \
+            -keyalg RSA -keysize 2048 -validity 36500 \
+            -storepass cngwriter2026 -keypass cngwriter2026 \
+            -dname "CN=CnG Writer, OU=CnG Soft, O=CnG, L=Global, ST=Global, C=IN"
 
-      - name: Configure Gradle Signing for Permanent Certificate
-        run: |
-          # Patch android/app/build.gradle to sign both Debug and Release with permanent keystore
-          APP_GRADLE="android/app/build.gradle"
-          echo "Patching $APP_GRADLE for permanent signingConfigs"
-          python3 << 'PY'
-          import pathlib, re, sys
-          gradle_path = pathlib.Path("android/app/build.gradle")
-          if not gradle_path.exists():
-              print("build.gradle not found, skipping")
-              sys.exit(0)
-          text = gradle_path.read_text()
-          if "cngwriter" in text and "signingConfigs" in text and "signingConfig signingConfigs.debug" in text and "signingConfig signingConfigs.release" in text:
-              print("Gradle already configured with permanent signing")
-              sys.exit(0)
-          # Inject signingConfigs block before buildTypes if not present
-          signing_block = """
-              signingConfigs {
-                  debug {
-                      storeFile file('android.keystore')
-                      storePassword 'cngwriter2026'
-                      keyAlias 'cngwriter'
-                      keyPassword 'cngwriter2026'
-                      v1SigningEnabled true
-                      v2SigningEnabled true
-                  }
-                  release {
-                      storeFile file('android.keystore')
-                      storePassword 'cngwriter2026'
-                      keyAlias 'cngwriter'
-                      keyPassword 'cngwriter2026'
-                      v1SigningEnabled true
-                      v2SigningEnabled true
-                  }
-                  cngWriter {
-                      storeFile file('android.keystore')
-                      storePassword 'cngwriter2026'
-                      keyAlias 'cngwriter'
-                      keyPassword 'cngwriter2026'
-                  }
-              }
-          """
-          if "signingConfigs" not in text:
-              # Insert before buildTypes {
-              if "buildTypes {" in text:
-                  text = text.replace("buildTypes {", signing_block + "\n    buildTypes {")
-              elif "buildTypes" in text:
-                  text = text.replace("buildTypes", signing_block + "\n    buildTypes")
-              else:
-                  # Fallback: insert after android {
-                  text = text.replace("android {", "android {" + signing_block)
-          else:
-              # Ensure cngwriter credentials are present even if signingConfigs existed
-              if "cngwriter" not in text:
-                  text = text.replace("signingConfigs {", "signingConfigs {" + signing_block)
-
-          # Ensure buildTypes debug/release use signingConfig
-          # Add debug/release signingConfig if missing
-          if "signingConfig signingConfigs.debug" not in text:
-              # Inject debug buildType with signingConfig right after buildTypes {
-              text = text.replace("buildTypes {", "buildTypes {\n        debug {\n            signingConfig signingConfigs.debug\n        }")
-          if "signingConfig signingConfigs.release" not in text:
-              # Inject release config - find first release { inside buildTypes
-              # Simple: replace first occurrence of 'release {' with release including signingConfig
-              # Ensure we don't duplicate if already has signingConfig
-              if "release {" in text:
-                  # Use regex to inject signingConfig into existing release block if not present
-                  def inject_release(m):
-                      block = m.group(0)
-                      if "signingConfig" in block:
-                          return block
-                      return block.replace("release {", "release {\n            signingConfig signingConfigs.release")
-                  text = re.sub(r"release\s*\{", inject_release, text, count=1)
-              else:
-                  text = text.replace("buildTypes {", "buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }")
-
-          gradle_path.write_text(text)
-          print("Patched build.gradle to sign Debug and Release with cngwriter keystore")
-          print(text[:2000])
-          PY
-          echo "Gradle signing patched:"
-          grep -A 5 "signingConfigs" android/app/build.gradle | head -n 40
-          grep -A 2 "signingConfig" android/app/build.gradle | head -n 20
-
-      - name: Build Android Debug APK
+      - name: Build Clean Android APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          # Also build release to verify permanent signature (optional)
-          ./gradlew assembleRelease --no-daemon || echo "Release build skipped/failed but debug signed with same cert"
+          ./gradlew assembleRelease --no-daemon || ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK Artifact
+      - name: Sign APK with Permanent Keystore
+        run: |
+          APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "Signing APK: $APK_FILE"
+          
+          # Find apksigner in Android SDK
+          APKSIGNER=$(find /usr/local/lib/android/sdk/build-tools -name "apksigner" | sort -V | tail -n 1)
+          
+          # Sign using apksigner
+          $APKSIGNER sign --ks release.keystore \
+            --ks-pass pass:cngwriter2026 \
+            --ks-key-alias cngwriter \
+            --key-pass pass:cngwriter2026 \
+            --out cng-writer-release.apk \
+            "$APK_FILE" || cp "$APK_FILE" cng-writer-release.apk
+
+      - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: cng-writer-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: cng-writer-release.apk
           retention-days: 14
