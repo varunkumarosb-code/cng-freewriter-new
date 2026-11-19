@@ -12,6 +12,7 @@ import {
 } from "../lib/storage";
 import { logger } from "../utils/logger";
 import { backupToDeviceStorage } from "../lib/deviceBackup";
+import { syncWithCloud } from "../lib/cloudSync";
 
 // Autosave delay helper — also available from src/lib/storage.ts
 const KEY_AUTOSAVE_DELAY = "cng_autosave_delay_sec";
@@ -68,6 +69,7 @@ class Store {
   }
 
   private deviceBackupTimer: number | null = null;
+  private cloudSyncTimer: number | null = null;
 
   private schedulePersist() {
     if (this.saveTimer !== null) clearTimeout(this.saveTimer);
@@ -86,6 +88,16 @@ class Store {
       } catch {}
       this.deviceBackupTimer = null;
     }, 800);
+    // Debounced cloud sync after autosave if online
+    if (this.cloudSyncTimer !== null) clearTimeout(this.cloudSyncTimer);
+    this.cloudSyncTimer = window.setTimeout(() => {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          void syncWithCloud();
+        }
+      } catch {}
+      this.cloudSyncTimer = null;
+    }, 1500);
   }
 
   setActiveStory(id: string | null) {
