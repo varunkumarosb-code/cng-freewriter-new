@@ -2,6 +2,7 @@ import { store } from '../state/store';
 import { countWords } from '../lib/format';
 import { logger, LogEntry } from '../utils/logger';
 import { BUILD_INFO } from '../build-info';
+import { getAutosaveDelayMs, setAutosaveDelaySec } from '../lib/storage';
 
 let isAdminAuthenticated = false;
 let currentFilter: string = 'ALL';
@@ -68,6 +69,7 @@ export function renderAdminPanel(): HTMLElement {
   }
   const storageKB = (totalStorageBytes / 1024).toFixed(2);
   const totalWords = store.stories.reduce((acc: number, s) => acc + countWords(s.content || ''), 0);
+  const currentAutosaveSec = Math.round(getAutosaveDelayMs() / 1000);
 
   container.innerHTML = `
     <div class="min-h-screen bg-nordic-bgLight dark:bg-nordic-bgDark text-nordic-textLight dark:text-nordic-textDark p-4 md:p-8">
@@ -122,6 +124,33 @@ export function renderAdminPanel(): HTMLElement {
             <div class="text-2xl font-bold mt-1 capitalize">${store.theme} Mode</div>
             <div class="text-xs text-nordic-mutedLight dark:text-nordic-mutedDark mt-1">Nordic Forest Palette</div>
           </div>
+        </div>
+
+        <!-- Autosave Debounce Interval Controller -->
+        <div class="p-5 rounded-2xl bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark space-y-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-sm flex items-center gap-2">
+                <span>⏱️</span> Autosave Debounce Interval
+              </h3>
+              <p class="text-xs text-nordic-mutedLight dark:text-nordic-mutedDark mt-1">Tune editor auto-save delay. 1–60 seconds. Current: <span class="font-mono font-semibold text-nordic-accentLight dark:text-nordic-accentDark">${currentAutosaveSec}s</span> → <span class="font-mono">${(currentAutosaveSec * 1000).toLocaleString()}ms</span></p>
+            </div>
+            <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-nordic-bgLight dark:bg-nordic-bgDark border border-nordic-borderLight dark:border-nordic-borderDark text-[11px] font-mono text-nordic-mutedLight dark:text-nordic-mutedDark">${currentAutosaveSec}s active</span>
+          </div>
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div class="flex items-center gap-2">
+              <input id="input-autosave-delay" type="number" min="1" max="60" step="1" value="${currentAutosaveSec}" class="w-20 px-3 py-2 rounded-lg bg-nordic-bgLight dark:bg-nordic-bgDark border border-nordic-borderLight dark:border-nordic-borderDark text-sm font-mono text-nordic-textLight dark:text-nordic-textDark focus:outline-none focus:border-nordic-accentLight dark:focus:border-nordic-accentDark" />
+              <span class="text-xs font-mono text-nordic-mutedLight dark:text-nordic-mutedDark">seconds</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button data-preset="2" class="preset-btn px-3 py-1.5 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark text-xs font-mono hover:border-nordic-accentLight dark:hover:border-nordic-accentDark hover:text-nordic-accentLight dark:hover:text-nordic-accentDark transition-all">2s</button>
+              <button data-preset="5" class="preset-btn px-3 py-1.5 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark text-xs font-mono hover:border-nordic-accentLight dark:hover:border-nordic-accentDark hover:text-nordic-accentLight dark:hover:text-nordic-accentDark transition-all">5s</button>
+              <button data-preset="10" class="preset-btn px-3 py-1.5 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark text-xs font-mono hover:border-nordic-accentLight dark:hover:border-nordic-accentDark hover:text-nordic-accentLight dark:hover:text-nordic-accentDark transition-all">10s</button>
+              <button data-preset="30" class="preset-btn px-3 py-1.5 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark text-xs font-mono hover:border-nordic-accentLight dark:hover:border-nordic-accentDark hover:text-nordic-accentLight dark:hover:text-nordic-accentDark transition-all">30s</button>
+            </div>
+            <button id="btn-save-autosave" class="sm:ml-auto px-4 py-2 rounded-xl bg-nordic-accentLight dark:bg-nordic-accentDark text-white dark:text-nordic-bgDark text-xs font-bold shadow hover:opacity-90 transition-all">Save Interval</button>
+          </div>
+          <div id="autosave-status" class="text-xs font-mono hidden"></div>
         </div>
 
         <!-- Live Event Logs Viewer -->
@@ -222,6 +251,39 @@ export function renderAdminPanel(): HTMLElement {
       localStorage.setItem('WRITER_PANEL_SECRET', input);
       alert(`Admin Secret updated to: ${input}`);
     }
+  });
+
+  // Autosave Interval Controller
+  const autosaveInput = container.querySelector('#input-autosave-delay') as HTMLInputElement | null;
+  const autosaveStatus = container.querySelector('#autosave-status') as HTMLElement | null;
+
+  container.querySelectorAll('.preset-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const presetVal = (btn as HTMLElement).getAttribute('data-preset') || '5';
+      if (autosaveInput) autosaveInput.value = presetVal;
+      autosaveInput?.focus();
+    });
+  });
+
+  container.querySelector('#btn-save-autosave')?.addEventListener('click', () => {
+    if (!autosaveInput) return;
+    let val = parseInt(autosaveInput.value, 10);
+    if (Number.isNaN(val)) val = 5;
+    val = Math.min(60, Math.max(1, Math.round(val)));
+    autosaveInput.value = String(val);
+    setAutosaveDelaySec(val);
+    localStorage.setItem('cng_autosave_delay_sec', String(val));
+    logger.info('CONFIG', `Autosave interval updated to ${val} seconds`);
+    logger.action('CONFIG', `Autosave interval updated to ${val} seconds`);
+    try { store.toast(`Autosave interval saved: ${val}s`, 'ok'); } catch {}
+    if (autosaveStatus) {
+      autosaveStatus.textContent = `✓ Saved: ${val}s (${val * 1000}ms) — editor will use new delay`;
+      autosaveStatus.className = 'text-xs font-mono text-emerald-600 dark:text-emerald-400';
+      autosaveStatus.classList.remove('hidden');
+      setTimeout(() => autosaveStatus.classList.add('hidden'), 3000);
+    }
+    // Re-render admin panel to reflect new current value in header
+    setTimeout(() => container.parentElement?.replaceChildren(renderAdminPanel()), 400);
   });
 
   return container;
