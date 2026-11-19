@@ -6,6 +6,7 @@ import { renderEditor } from './views/Editor';
 import { renderAdminPanel } from './views/AdminPanelView';
 import { logger } from './utils/logger';
 import { autoRecoverIfEmpty } from './lib/deviceBackup';
+import { syncWithCloud } from './lib/cloudSync';
 import { renderToasts } from './views/Toast';
 
 // PWA: Register lightweight Service Worker (network-first, Cloudflare-friendly)
@@ -140,4 +141,8 @@ window.addEventListener('hashchange', () => {
 
 // Initial boot — attempt device auto-recover then render
 logger.info('APP', 'CnG Writer initialized');
-void autoRecoverIfEmpty().finally(() => renderApp(true));
+void autoRecoverIfEmpty().finally(() => {
+  renderApp(true);
+  // Initial cloud sync on boot
+  void syncWithCloud().catch(() => {});
+});
