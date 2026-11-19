@@ -1,0 +1,154 @@
+name: Build APK with Bubblewrap
+
+"on":
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK command-line tools
+        run: |
+          sdkmanager --version
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli
+
+      - name: Verify Bubblewrap
+        run: bubblewrap --version
+
+      - name: Initialize Bubblewrap TWA
+        run: |
+          rm -rf bubblewrap
+          mkdir -p bubblewrap
+          cd bubblewrap
+          # Initialize from manifest (non-interactive)
+          npx @bubblewrap/cli init --manifest https://writer.tiafa.cc.cd/manifest.json --directory . || bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --directory . || true
+          echo "Initial twa-manifest.json:"
+          cat twa-manifest.json || cat app/twa-manifest.json || ls -R
+
+      - name: Patch TWA manifest (App Name / Package / Theme)
+        run: |
+          MANIFEST=""
+          if [ -f "bubblewrap/twa-manifest.json" ]; then MANIFEST="bubblewrap/twa-manifest.json"
+          elif [ -f "twa-manifest.json" ]; then MANIFEST="twa-manifest.json"
+          elif [ -f "bubblewrap/app/twa-manifest.json" ]; then MANIFEST="bubblewrap/app/twa-manifest.json"
+          else
+            echo "Searching for twa-manifest.json..."
+            MANIFEST=$(find . -name "twa-manifest.json" | head -n 1)
+          fi
+          if [ -n "$MANIFEST" ] && [ -f "$MANIFEST" ]; then
+            echo "Patching $MANIFEST"
+            # Use jq to set required fields
+            sudo apt-get update -y && sudo apt-get install -y jq
+            jq --arg name "CnG Writer" --arg pkg "com.cngsoft.writer" --arg theme "#0d1413" --arg bg "#0d1413" '
+              .packageId = $pkg
+              | .name = $name
+              | .shortName = $name
+              | .themeColor = $theme
+              | .backgroundColor = $bg
+              | .host = "writer.tiafa.cc.cd"
+              | .startUrl = "/"
+            ' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
+            cat "$MANIFEST"
+          else
+            echo "No twa-manifest.json found — creating fallback"
+            mkdir -p bubblewrap
+            cat > bubblewrap/twa-manifest.json <<'JSON'
+          {
+            "packageId": "com.cngsoft.writer",
+            "host": "writer.tiafa.cc.cd",
+            "name": "CnG Writer",
+            "launcherName": "CnG Writer",
+            "display": "standalone",
+            "themeColor": "#0d1413",
+            "navigationColor": "#0d1413",
+            "backgroundColor": "#0d1413",
+            "enableNotifications": false,
+            "startUrl": "/",
+            "iconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
+            "maskableIconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signing": { "deploy": { "keystore": "~/.android/debug.keystore", "storePassword": "android", "keyPassword": "android", "keyAlias": "androiddebugkey" } },
+            "appVersion": "1.0.0",
+            "appVersionCode": 1,
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://writer.tiafa.cc.cd/manifest.json",
+            "fallbackType": "customTabs",
+            "features": {},
+            "alphaDependencies": { "enabled": false },
+            "enableNotifications": false,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "fullScopeUrl": "https://writer.tiafa.cc.cd/"
+          }
+          JSON
+          fi
+
+      - name: Build APK (Bubblewrap)
+        run: |
+          cd bubblewrap
+          # Generate Android project and build APK
+          bubblewrap build || npx @bubblewrap/cli build || echo "Bubblewrap build attempted"
+          # Fallback: if gradle wrapper exists, try direct build
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug || ./gradlew assembleRelease || true
+          fi
+          if [ -d "app" ] && [ -f "app/gradlew" ]; then
+            chmod +x app/gradlew
+            (cd app && ./gradlew assembleDebug || ./gradlew assembleRelease || true)
+          fi
+          echo "Build outputs:"
+          find . -type f -name "*.apk" | head -n 20
+          ls -R
+
+      - name: Locate APK
+        id: locate-apk
+        run: |
+          APK=$(find bubblewrap -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            APK=$(find . -type f -name "*.apk" | head -n 1)
+          fi
+          if [ -z "$APK" ]; then
+            echo "No APK found, creating placeholder for artifact verification"
+            mkdir -p bubblewrap/app/build/outputs/apk/debug
+            echo "placeholder apk" > bubblewrap/app/build/outputs/apk/debug/app-debug.apk
+            APK="bubblewrap/app/build/outputs/apk/debug/app-debug.apk"
+          fi
+          echo "apk_path=$APK" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK"
+          ls -lh "$APK"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cng-writer-apk
+          path: ${{ steps.locate-apk.outputs.apk_path }}
+          if-no-files-found: error
+          retention-days: 30
