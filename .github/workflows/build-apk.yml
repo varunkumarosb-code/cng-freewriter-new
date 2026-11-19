@@ -1,228 +1,68 @@
-name: Build APK with Bubblewrap
-
-"on":
+name: Build Android APK
+on:
   workflow_dispatch:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 20
 
       - name: Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: "17"
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK command-line tools
+      - name: Configure Pre-installed Android SDK & Licenses
         run: |
-          sdkmanager --version || true
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Inject Bubblewrap paths
+      - name: Setup Bubblewrap CLI & Config
         run: |
+          npm install -g @bubblewrap/cli
           mkdir -p ~/.bubblewrap
-          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
-          cat ~/.bubblewrap/config.json
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -la ~/.bubblewrap/ || true
-
-      - name: Install Bubblewrap CLI
-        run: npm install -g @bubblewrap/cli
-
-      - name: Verify Bubblewrap
-        run: bubblewrap --version
-
-      - name: Initialize Bubblewrap (non-interactive)
-        run: |
-          rm -rf bubblewrap
-          mkdir -p bubblewrap
-          cd bubblewrap
-          echo "Running bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --yes"
-          set +e
-          # Use --yes flag and pipe yes to avoid TTY prompts
-          yes | bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee ../bubblewrap-init.log
-          INIT_EXIT=${PIPESTATUS[0]:-$?}
-          echo "Init exit: $INIT_EXIT"
-          if [ "$INIT_EXIT" -ne 0 ]; then
-            echo "Retrying with npx fallback..."
-            yes | npx @bubblewrap/cli init --manifest https://writer.tiafa.cc.cd/manifest.json --yes 2>&1 | tee -a ../bubblewrap-init.log || true
-          fi
-          echo "--- init log ---"
-          cat ../bubblewrap-init.log || true
-          echo "--- manifest after init ---"
-          cat twa-manifest.json 2>/dev/null || cat app/twa-manifest.json 2>/dev/null || ls -R
-          set -e
-
-      - name: Patch TWA manifest (App Name / Package / Theme)
-        run: |
-          MANIFEST=""
-          if [ -f "bubblewrap/twa-manifest.json" ]; then MANIFEST="bubblewrap/twa-manifest.json"
-          elif [ -f "twa-manifest.json" ]; then MANIFEST="twa-manifest.json"
-          elif [ -f "bubblewrap/app/twa-manifest.json" ]; then MANIFEST="bubblewrap/app/twa-manifest.json"
-          else MANIFEST=$(find . -name "twa-manifest.json" | head -n 1); fi
-          echo "Target manifest: $MANIFEST"
-          if [ -n "$MANIFEST" ] && [ -f "$MANIFEST" ]; then
-            sudo apt-get update -y && sudo apt-get install -y jq
-            jq --arg name "CnG Writer" --arg pkg "com.cngsoft.writer" --arg theme "#0d1413" --arg bg "#0d1413" '
-              .packageId = $pkg
-              | .name = $name
-              | .shortName = $name
-              | .launcherName = $name
-              | .themeColor = $theme
-              | .navigationColor = $theme
-              | .backgroundColor = $bg
-              | .host = "writer.tiafa.cc.cd"
-              | .startUrl = "/"
-              | .webManifestUrl = "https://writer.tiafa.cc.cd/manifest.json"
-            ' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
-            cat "$MANIFEST"
-          else
-            echo "No twa-manifest.json found — creating fallback"
-            mkdir -p bubblewrap
-            cat > bubblewrap/twa-manifest.json <<'JSON'
+          cat <<EOF > ~/.bubblewrap/config.json
           {
-            "packageId": "com.cngsoft.writer",
-            "host": "writer.tiafa.cc.cd",
-            "name": "CnG Writer",
-            "launcherName": "CnG Writer",
-            "display": "standalone",
-            "themeColor": "#0d1413",
-            "navigationColor": "#0d1413",
-            "backgroundColor": "#0d1413",
-            "enableNotifications": false,
-            "startUrl": "/",
-            "iconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
-            "maskableIconUrl": "https://writer.tiafa.cc.cd/icons/icon-512.png",
-            "splashScreenFadeOutDuration": 300,
-            "signing": { "deploy": { "keystore": "android.keystore", "storePassword": "cngwriter123", "keyPassword": "cngwriter123", "keyAlias": "android" } },
-            "appVersion": "1.0.0",
-            "appVersionCode": 1,
-            "shortcuts": [],
-            "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://writer.tiafa.cc.cd/manifest.json",
-            "fallbackType": "customTabs",
-            "features": {},
-            "alphaDependencies": { "enabled": false },
-            "isChromeOSOnly": false,
-            "isMetaQuest": false,
-            "fullScopeUrl": "https://writer.tiafa.cc.cd/"
+            "jdkPath": "$JAVA_HOME",
+            "androidSdkPath": "/usr/local/lib/android/sdk"
           }
-          JSON
-          fi
+          EOF
 
-      - name: Generate signing key silently
+      - name: Generate Signing Keystore
         run: |
-          cd bubblewrap
-          echo "Generating keystore android.keystore"
-          rm -f android.keystore
-          keytool -genkey -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000 -storepass cngwriter123 -keypass cngwriter123 -dname "CN=CnG, OU=Soft, O=CnG, L=IST, S=IST, C=IN" 2>&1 | tee ../keytool.log
-          ls -lh android.keystore || true
-          cat ../keytool.log || true
-          # Also ensure twa-manifest points to this keystore
-          if [ -f "twa-manifest.json" ]; then
-            echo "Updating signing key path in manifest"
-            sudo apt-get update -y && sudo apt-get install -y jq
-            jq '.signingKey.path = "./android.keystore" | .signingKey.alias = "android"' twa-manifest.json > twa-manifest.tmp && mv twa-manifest.tmp twa-manifest.json || true
-            cat twa-manifest.json || true
-          fi
+          keytool -genkey -v -keystore android.keystore -alias android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass cngwriter123 -keypass cngwriter123 \
+            -dname "CN=CnG, OU=Soft, O=CnG, L=IST, S=IST, C=IN"
 
-      - name: Build APK (non-interactive)
-        id: build-apk
+      - name: Initialize & Build APK via Bubblewrap
         run: |
-          cd bubblewrap
-          echo "Running bubblewrap build --yes"
-          set +e
-          yes | bubblewrap build --yes 2>&1 | tee ../bubblewrap-build.log
-          BUILD_EXIT=${PIPESTATUS[0]:-$?}
-          echo "First build exit: $BUILD_EXIT"
-          if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "Retrying with explicit output..."
-            yes | npx @bubblewrap/cli build --yes 2>&1 | tee -a ../bubblewrap-build.log
-            BUILD_EXIT=${PIPESTATUS[0]:-$?}
-            echo "Second build exit: $BUILD_EXIT"
-          fi
-          if [ "$BUILD_EXIT" -ne 0 ]; then
-            echo "Trying Gradle direct fallback..."
-            if [ -f "./gradlew" ]; then chmod +x ./gradlew; ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ../bubblewrap-build.log || ./gradlew assembleRelease 2>&1 | tee -a ../bubblewrap-build.log; fi
-            if [ -f "app/gradlew" ]; then chmod +x app/gradlew; (cd app && ./gradlew assembleDebug --stacktrace 2>&1 | tee -a ../../bubblewrap-build.log || ./gradlew assembleRelease 2>&1 | tee -a ../../bubblewrap-build.log); fi
-          fi
-          echo "--- Build log tail ---"
-          tail -n 200 ../bubblewrap-build.log || true
-          echo "Searching for APKs (current dir and all subdirectories)..."
-          find . -type f -name "*.apk" 2>/dev/null | head -n 20 | tee ../apk-list.txt || true
-          find . -maxdepth 3 -type f -name "*.apk" 2>/dev/null | head -n 20 || true
-          ls -R | head -n 100
-          set -e
-          if ! find . -type f -name "*.apk" 2>/dev/null | grep -q ".apk"; then
-            echo "## ⚠️ Bubblewrap build did not produce APK" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 100 ../bubblewrap-build.log >> $GITHUB_STEP_SUMMARY || echo "no log" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ✅ Bubblewrap build succeeded" >> $GITHUB_STEP_SUMMARY
-            cat ../apk-list.txt >> $GITHUB_STEP_SUMMARY
-          fi
-          # Capture full log for artifact
-          cp ../bubblewrap-build.log ./bubblewrap-build.log 2>/dev/null || true
-          cp ../bubblewrap-init.log ./bubblewrap-init.log 2>/dev/null || true
-          exit 0
+          # Initialize headless from manifest
+          bubblewrap init --manifest https://writer.tiafa.cc.cd/manifest.json --skipConfig
+          
+          # Build APK with keystore credentials
+          bubblewrap build \
+            --signingKeyPath ./android.keystore \
+            --signingKeyAlias android \
+            --password cngwriter123 \
+            --keyPassword cngwriter123 || (cd app && ./gradlew assembleRelease || ./gradlew assembleDebug)
 
-      - name: Locate APK (current dir and all subdirs)
-        id: locate-apk
-        run: |
-          echo "Searching for APK in current directory and all subdirectories..."
-          APK=$(find . -type f -name "*.apk" 2>/dev/null | head -n 1)
-          if [ -z "$APK" ]; then
-            APK=$(find bubblewrap -type f -name "*.apk" 2>/dev/null | head -n 1)
-          fi
-          if [ -z "$APK" ]; then
-            echo "No APK found across all directories — creating placeholder for artifact verification"
-            mkdir -p bubblewrap/app/build/outputs/apk/debug
-            echo "placeholder for cng-writer apk build" > bubblewrap/app/build/outputs/apk/debug/cng-writer-placeholder.apk
-            APK="bubblewrap/app/build/outputs/apk/debug/cng-writer-placeholder.apk"
-            echo "Created placeholder at $APK"
-          fi
-          echo "apk_path=$APK" >> $GITHUB_OUTPUT
-          echo "Found APK: $APK"
-          ls -lh "$APK" || true
-          echo "All APKs found:"
-          find . -type f -name "*.apk" 2>/dev/null | head -n 20 || true
-          cp "$APK" ./cng-writer.apk 2>/dev/null || true
-
-      - name: Upload APK artifact
+      - name: Locate & Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: cng-writer-apk
-          path: ${{ steps.locate-apk.outputs.apk_path }}
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: bubblewrap-logs
           path: |
-            bubblewrap-build.log
-            bubblewrap-init.log
-            keytool.log
-            apk-list.txt
-          if-no-files-found: ignore
+            **/*.apk
+          retention-days: 14
