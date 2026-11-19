@@ -7,16 +7,53 @@ import { renderAdminPanel } from './views/AdminPanelView';
 import { logger } from './utils/logger';
 import { renderToasts } from './views/Toast';
 
-// 1. Force Unregister Legacy Service Workers (prevents cached old builds)
+// PWA: Register lightweight Service Worker (network-first, Cloudflare-friendly)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const reg of registrations) {
-      reg.unregister().then(() => {
-        logger.info('SYSTEM', 'Unregistered legacy service worker');
-      });
-    }
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then(() => logger.info('PWA', 'Service Worker registered'))
+      .catch((err) => logger.warn('PWA', 'SW registration failed', err));
   });
 }
+
+// Optional native install banner — show when beforeinstallprompt is captured
+let deferredPrompt: any = null;
+window.addEventListener('beforeinstallprompt', (e: Event) => {
+  e.preventDefault();
+  deferredPrompt = e as any;
+  logger.info('PWA', 'beforeinstallprompt captured — install available');
+  // Inject install banner if not already present
+  if (!document.getElementById('pwa-install-banner')) {
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.className =
+      'fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-nordic-cardLight dark:bg-nordic-cardDark border border-nordic-borderLight dark:border-nordic-borderDark shadow-xl';
+    banner.innerHTML = `
+      <span class="text-sm font-semibold text-nordic-textLight dark:text-nordic-textDark">📲 Install CnG Writer</span>
+      <button id="pwa-install-btn" class="px-3 py-1.5 rounded-xl bg-nordic-accentLight dark:bg-nordic-accentDark text-white dark:text-nordic-bgDark text-xs font-bold hover:opacity-90">Install</button>
+      <button id="pwa-dismiss-btn" class="text-nordic-mutedLight dark:text-nordic-mutedDark hover:text-nordic-textLight text-xs">✕</button>
+    `;
+    document.body.appendChild(banner);
+    banner.querySelector('#pwa-install-btn')?.addEventListener('click', () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choice: any) => {
+          logger.info('PWA', `Install choice: ${choice.outcome}`);
+          deferredPrompt = null;
+          banner.remove();
+        });
+      }
+    });
+    banner.querySelector('#pwa-dismiss-btn')?.addEventListener('click', () => banner.remove());
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  logger.info('PWA', 'App installed to standalone');
+  deferredPrompt = null;
+  document.getElementById('pwa-install-banner')?.remove();
+});
 
 function syncTheme() {
   if (store.theme === 'dark') {

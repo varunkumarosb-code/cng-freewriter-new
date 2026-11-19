@@ -10,6 +10,7 @@ import {
   saveStories,
   saveTheme,
 } from "../lib/storage";
+import { logger } from "../utils/logger";
 
 // Autosave delay helper — also available from src/lib/storage.ts
 const KEY_AUTOSAVE_DELAY = "cng_autosave_delay_sec";
@@ -114,6 +115,7 @@ class Store {
       categoryId: initialCategoryId || this.categories[0]?.id || "",
       createdAt: now,
       updatedAt: now,
+      deletedAt: null,
     };
     this.stories = [next, ...this.stories];
     this.schedulePersist();
@@ -146,14 +148,47 @@ class Store {
   }
 
   deleteStory(id: string) {
+    const now = new Date().toISOString();
+    const found = this.stories.find((s) => s.id === id);
+    if (!found || found.deletedAt) return;
+    this.stories = this.stories.map((s) => (s.id === id ? { ...s, deletedAt: now, updatedAt: now } : s));
+    if (this.activeStoryId === id) this.activeStoryId = null;
+    this.schedulePersist();
+    this.toast("Moved to Trash", "ok");
+    logger.info("TRASH", `Soft-deleted story ${id}`);
+    this.notify();
+  }
+
+  restoreStory(id: string) {
+    const now = new Date().toISOString();
+    this.stories = this.stories.map((s) => (s.id === id ? { ...s, deletedAt: null, updatedAt: now } : s));
+    this.schedulePersist();
+    this.toast("Restored from Trash", "ok");
+    logger.info("TRASH", `Restored story ${id}`);
+    this.notify();
+  }
+
+  permanentlyDeleteStory(id: string) {
     const found = this.stories.find((s) => s.id === id);
     const remoteId = found?.remoteId;
     this.stories = this.stories.filter((s) => s.id !== id);
     if (this.activeStoryId === id) this.activeStoryId = null;
     this.schedulePersist();
-    this.toast("Story deleted", "ok");
+    this.toast("Permanently deleted", "ok");
+    logger.info("TRASH", `Permanently deleted story ${id}`);
     this.notify();
     if (remoteId) void deleteRemoteStory(remoteId);
+  }
+
+  emptyTrash() {
+    const count = this.stories.filter((s) => !!s.deletedAt).length;
+    if (count === 0) return;
+    this.stories = this.stories.filter((s) => !s.deletedAt);
+    if (this.activeStoryId && !this.stories.find((s) => s.id === this.activeStoryId)) this.activeStoryId = null;
+    this.schedulePersist();
+    this.toast(`Emptied Trash (${count})`, "ok");
+    logger.info("TRASH", `Emptied trash: ${count} stories purged`);
+    this.notify();
   }
 
   addCategory(name: string): Category | null {
