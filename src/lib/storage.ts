@@ -113,13 +113,14 @@ export function getEffectiveShelfName(story: Story, categories: Category[]): str
 }
 
 export function getShelfCount(stories: Story[], shelfName: string, categories: Category[]): number {
-  if (shelfName === "All") return stories.length;
+  if (shelfName === "Trash 🗑️" || shelfName.toLowerCase() === "trash") return stories.filter((s) => !!s.deletedAt).length;
+  if (shelfName === "All") return stories.filter((s) => !s.deletedAt).length;
   if (shelfName === "Unshelved") {
-    return stories.filter((s) => !s.categoryId || !categories.some((c) => c.id === s.categoryId)).length;
+    return stories.filter((s) => !s.deletedAt && (!s.categoryId || !categories.some((c) => c.id === s.categoryId))).length;
   }
   const cat = categories.find((c) => c.name.toLowerCase() === shelfName.toLowerCase());
   if (!cat) return 0;
-  return stories.filter((s) => s.categoryId === cat.id).length;
+  return stories.filter((s) => !s.deletedAt && s.categoryId === cat.id).length;
 }
 
 export function mergeByUpdatedAt(local: Story[], incoming: Story[]): Story[] {

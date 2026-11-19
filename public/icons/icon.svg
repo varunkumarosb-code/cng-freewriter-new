@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d1413"/>
+  <rect x="28" y="28" width="456" height="456" rx="80" fill="#131f1c" stroke="#20332d" stroke-width="8"/>
+  <text x="256" y="280" text-anchor="middle" font-family="Georgia, serif" font-size="220" fill="#52b788">🌿</text>
+  <text x="256" y="360" text-anchor="middle" font-family="monospace" font-size="28" font-weight="700" fill="#e3ebe6" letter-spacing="6">CnG</text>
+  <text x="256" y="390" text-anchor="middle" font-family="monospace" font-size="18" fill="#7e978d" letter-spacing="4">WRITER</text>
+</svg>

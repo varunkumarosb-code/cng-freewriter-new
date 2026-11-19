@@ -6,6 +6,7 @@ export interface Story {
   createdAt: string;
   updatedAt: string;
   remoteId?: string;
+  deletedAt?: string | null;
 }
 
 export interface Category {
