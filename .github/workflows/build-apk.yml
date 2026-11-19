@@ -43,34 +43,25 @@ jobs:
           echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
           npx cap sync android
 
-      - name: Generate Permanent Keystore
-        run: |
-          keytool -genkey -v -keystore release.keystore -alias cngwriter \
-            -keyalg RSA -keysize 2048 -validity 36500 \
-            -storepass cngwriter2026 -keypass cngwriter2026 \
-            -dname "CN=CnG Writer, OU=CnG Soft, O=CnG, L=Global, ST=Global, C=IN"
-
       - name: Build Clean Android APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon || ./gradlew assembleDebug --no-daemon
 
-      - name: Sign APK with Permanent Keystore
+      - name: Sign APK with Committed Permanent Keystore
         run: |
           APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
           echo "Signing APK: $APK_FILE"
           
-          # Find apksigner in Android SDK
           APKSIGNER=$(find /usr/local/lib/android/sdk/build-tools -name "apksigner" | sort -V | tail -n 1)
           
-          # Sign using apksigner
-          $APKSIGNER sign --ks release.keystore \
+          $APKSIGNER sign --ks signing/cngwriter-permanent.keystore \
             --ks-pass pass:cngwriter2026 \
             --ks-key-alias cngwriter \
             --key-pass pass:cngwriter2026 \
             --out cng-writer-release.apk \
-            "$APK_FILE" || cp "$APK_FILE" cng-writer-release.apk
+            "$APK_FILE"
 
       - name: Upload Signed APK Artifact
         uses: actions/upload-artifact@v4
