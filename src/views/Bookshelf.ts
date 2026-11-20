@@ -10,15 +10,15 @@ export function renderBookshelf(): HTMLElement {
   const container = document.createElement("div");
   container.className = "mx-auto max-w-6xl px-5 py-6 min-h-[calc(100vh-60px)] flex flex-col justify-between";
 
-  const activeStories = store.stories.filter((s) => !s.deletedAt);
-  const trashCount = store.stories.filter((s) => !!s.deletedAt).length;
+  const activeStories = store.stories.filter((s) => !(s.isDeleted === true || !!s.deletedAt));
+  const trashCount = store.stories.filter((s) => s.isDeleted === true || !!s.deletedAt).length;
   const isTrashView = currentShelf === "Trash 🗑️" || currentShelf.toLowerCase() === "trash";
   const totalWords = activeStories.reduce((acc, s) => acc + countWords(s.content || ""), 0);
   const shelves = ["All", "Unshelved", ...store.categories.map((c) => c.name), "Trash 🗑️"];
 
   const filteredStories = isTrashView
     ? store.stories.filter((s) => {
-        if (!s.deletedAt) return false;
+        if (!(s.isDeleted === true || !!s.deletedAt)) return false;
         const shelfName = getEffectiveShelfName(s, store.categories);
         const hay = `${s.title} ${s.content} ${shelfName}`.toLowerCase();
         const matchesSearch = !searchQuery || hay.includes(searchQuery.toLowerCase().trim());

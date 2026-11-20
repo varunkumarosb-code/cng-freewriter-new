@@ -13,6 +13,7 @@ import {
 import { logger } from "../utils/logger";
 import { backupToDeviceStorage } from "../lib/deviceBackup";
 import { syncWithCloud } from "../lib/cloudSync";
+import { loadEditorSettings, saveEditorSettings } from "../lib/editorSettings";
 
 // Autosave delay helper — also available from src/lib/storage.ts
 const KEY_AUTOSAVE_DELAY = "cng_autosave_delay_sec";
@@ -102,6 +103,14 @@ class Store {
 
   setActiveStory(id: string | null) {
     this.activeStoryId = id;
+    if (id) {
+      try {
+        const cur = loadEditorSettings();
+        if (cur.lastActiveStoryId !== id) {
+          saveEditorSettings({ ...cur, lastActiveStoryId: id });
+        }
+      } catch {}
+    }
     this.notify();
   }
 
@@ -139,6 +148,7 @@ class Store {
       categoryId: initialCategoryId || this.categories[0]?.id || "",
       createdAt: now,
       updatedAt: now,
+      isDeleted: false,
       deletedAt: null,
     };
     this.stories = [next, ...this.stories];
@@ -161,6 +171,13 @@ class Store {
       return updated;
     });
     this.schedulePersist();
+    // Remember last edited story for "Open Last Story on Launch"
+    try {
+      const cur = loadEditorSettings();
+      if (cur.lastActiveStoryId !== id) {
+        saveEditorSettings({ ...cur, lastActiveStoryId: id });
+      }
+    } catch {}
     if (updated) {
       queueSyncToPB(updated, (localId, remoteId) => {
         this.stories = this.stories.map((s) => (s.id === localId ? { ...s, remoteId } : s));
@@ -174,8 +191,8 @@ class Store {
   deleteStory(id: string) {
     const now = new Date().toISOString();
     const found = this.stories.find((s) => s.id === id);
-    if (!found || found.deletedAt) return;
-    this.stories = this.stories.map((s) => (s.id === id ? { ...s, deletedAt: now, updatedAt: now } : s));
+    if (!found || found.isDeleted || found.deletedAt) return;
+    this.stories = this.stories.map((s) => (s.id === id ? { ...s, isDeleted: true, deletedAt: Date.now(), updatedAt: now } : s));
     if (this.activeStoryId === id) this.activeStoryId = null;
     this.schedulePersist();
     this.toast("Moved to Trash", "ok");
@@ -185,7 +202,7 @@ class Store {
 
   restoreStory(id: string) {
     const now = new Date().toISOString();
-    this.stories = this.stories.map((s) => (s.id === id ? { ...s, deletedAt: null, updatedAt: now } : s));
+    this.stories = this.stories.map((s) => (s.id === id ? { ...s, isDeleted: false, deletedAt: undefined, updatedAt: now } : s));
     this.schedulePersist();
     this.toast("Restored from Trash", "ok");
     logger.info("TRASH", `Restored story ${id}`);
@@ -202,12 +219,23 @@ class Store {
     logger.info("TRASH", `Permanently deleted story ${id}`);
     this.notify();
     if (remoteId) void deleteRemoteStory(remoteId);
+    // Clean up history snapshots for this story
+    try {
+      localStorage.removeItem(`cng_writer_snapshots_${id}`);
+    } catch {}
   }
 
   emptyTrash() {
-    const count = this.stories.filter((s) => !!s.deletedAt).length;
+    const trashed = this.stories.filter((s) => s.isDeleted === true || !!s.deletedAt);
+    const count = trashed.length;
     if (count === 0) return;
-    this.stories = this.stories.filter((s) => !s.deletedAt);
+    // Clean up history snapshots for each trashed story
+    try {
+      for (const s of trashed) {
+        localStorage.removeItem(`cng_writer_snapshots_${s.id}`);
+      }
+    } catch {}
+    this.stories = this.stories.filter((s) => !(s.isDeleted === true || !!s.deletedAt));
     if (this.activeStoryId && !this.stories.find((s) => s.id === this.activeStoryId)) this.activeStoryId = null;
     this.schedulePersist();
     this.toast(`Emptied Trash (${count})`, "ok");

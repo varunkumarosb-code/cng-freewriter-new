@@ -6,7 +6,8 @@ export interface Story {
   createdAt: string;
   updatedAt: string;
   remoteId?: string;
-  deletedAt?: string | null;
+  isDeleted?: boolean;
+  deletedAt?: string | number | null;
 }
 
 export interface Category {

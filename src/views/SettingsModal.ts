@@ -1,4 +1,5 @@
 import { store } from '../state/store';
+import { loadEditorSettings, saveEditorSettings } from '../lib/editorSettings';
 import { logger } from '../utils/logger';
 import { saveStories, saveCategories } from '../lib/storage';
 import { getSyncKey, setSyncKey, regenerateSyncKey } from '../lib/syncKey';
@@ -135,6 +136,21 @@ export function openSettingsModal() {
             <input type="file" id="input-modal-import" accept=".json" class="hidden" />
           </label>
         </div>
+      </div>
+
+      <!-- Open Last Story on Launch -->
+      <div class="space-y-2 p-4 rounded-xl bg-nordic-bgLight dark:bg-nordic-bgDark border border-nordic-borderLight dark:border-nordic-borderDark">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span>⚡</span>
+            <span class="text-xs font-semibold text-nordic-textLight dark:text-nordic-textDark">Open last story on launch</span>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggle-open-last-story" class="sr-only peer" />
+            <div class="w-11 h-6 bg-nordic-borderLight dark:bg-nordic-borderDark rounded-full peer peer-checked:bg-nordic-accentLight dark:peer-checked:bg-nordic-accentDark transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+          </label>
+        </div>
+        <p class="text-[11px] leading-relaxed text-nordic-mutedLight dark:text-nordic-mutedDark">Automatically enter editor for your last opened story</p>
       </div>
 
       <!-- Build Info Footer -->
@@ -384,6 +400,20 @@ export function openSettingsModal() {
       btn.removeAttribute('disabled');
     }
   });
+
+  // Open Last Story toggle
+  {
+    const prefs = loadEditorSettings();
+    const toggle = backdrop.querySelector('#toggle-open-last-story') as HTMLInputElement | null;
+    if (toggle) {
+      toggle.checked = !!prefs.openLastStoryOnLaunch;
+      toggle.addEventListener('change', () => {
+        const cur = loadEditorSettings();
+        saveEditorSettings({ ...cur, openLastStoryOnLaunch: toggle.checked, lastActiveStoryId: cur.lastActiveStoryId ?? store.activeStoryId ?? null });
+        store.toast(toggle.checked ? 'Auto-open last story enabled' : 'Auto-open last story disabled');
+      });
+    }
+  }
 
   // Export JSON
   backdrop.querySelector('#btn-modal-export')?.addEventListener('click', () => {

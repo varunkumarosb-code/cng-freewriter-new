@@ -6,7 +6,9 @@ export interface Story {
   createdAt: string;
   updatedAt: string;
   remoteId?: string;
-  deletedAt?: string | null;
+  // Soft delete flags — supported both legacy string and new numeric forms
+  isDeleted?: boolean;
+  deletedAt?: string | number | null;
 }
 
 export interface Category {
