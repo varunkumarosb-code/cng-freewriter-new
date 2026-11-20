@@ -3,6 +3,8 @@ import { countWords, formatDate, readingMinutes, slugify } from "../lib/format";
 import { downloadFile, printStoryPDF, storyToMarkdown, storyToPlainText } from "../lib/backup";
 import { getEffectiveShelfName, getAutosaveDelayMs } from "../lib/storage";
 import { loadEditorSettings, saveEditorSettings } from "../lib/editorSettings";
+import { createSnapshot, getSnapshots, maybeCreateSnapshot } from "../lib/historyManager";
+import { openHistoryModal } from "./HistoryModal";
 
 export function renderEditor(storyId: string): HTMLElement {
   const story = store.stories.find((s) => s.id === storyId);
@@ -108,6 +110,7 @@ export function renderEditor(storyId: string): HTMLElement {
               ? "bg-nordic-accentLight dark:bg-nordic-accentDark border-nordic-accentLight dark:border-nordic-accentDark text-white dark:text-nordic-bgDark shadow-sm ring-1 ring-nordic-accentLight/30"
               : "bg-nordic-cardLight dark:bg-nordic-cardDark border-nordic-borderLight dark:border-nordic-borderDark text-nordic-textLight dark:text-nordic-textDark hover:border-nordic-accentLight dark:hover:border-nordic-accentDark"
           }">🎯</button>
+          <button id="btn-history" title="Version History & Snapshots" aria-label="History" class="inline-flex h-7 md:h-8 w-7 md:w-8 items-center justify-center rounded-lg border bg-nordic-cardLight dark:bg-nordic-cardDark border-nordic-borderLight dark:border-nordic-borderDark text-nordic-textLight dark:text-nordic-textDark hover:border-nordic-accentLight dark:hover:border-nordic-accentDark transition-all text-xs">🕒</button>
 
           <div class="relative shrink-0">
             <button id="btn-export-dropdown" class="inline-flex h-7 md:h-8 items-center gap-1 rounded-lg border border-nordic-borderLight dark:border-nordic-borderDark bg-nordic-cardLight dark:bg-nordic-cardDark px-2 md:px-3 py-1 text-xs md:text-[12px] font-medium text-nordic-textLight dark:text-nordic-textDark transition-all">
@@ -168,6 +171,17 @@ export function renderEditor(storyId: string): HTMLElement {
   const statsEl = container.querySelector("#stats-text") as HTMLElement;
   const focusToggle = container.querySelector("#btn-focus-toggle") as HTMLElement;
   const typewriterToggle = container.querySelector("#btn-typewriter-toggle") as HTMLElement;
+  const historyBtn = container.querySelector("#btn-history") as HTMLElement;
+
+  // --- History Snapshots: auto-create on load ---
+  try {
+    const existingSnaps = getSnapshots(storyId);
+    if (existingSnaps.length === 0) {
+      createSnapshot(storyId, localContent, localTitle);
+    } else {
+      maybeCreateSnapshot(storyId, localContent, localTitle);
+    }
+  } catch {}
 
   // Set title input value safely (avoid HTML escaping issues)
   if (titleEl) {
@@ -368,6 +382,24 @@ export function renderEditor(storyId: string): HTMLElement {
     // If disabling, clear classes
   });
 
+  // History button
+  historyBtn?.addEventListener("click", () => {
+    openHistoryModal({
+      storyId,
+      onRestore: (snap) => {
+        // Sync local state to restored snapshot
+        localTitle = snap.title;
+        localContent = snap.content;
+        if (titleEl) titleEl.value = snap.title;
+        // Stats will be updated by modal, but ensure save indicator
+        saveIndEl.innerText = "Unsaved changes";
+        saveIndEl.className = "font-mono text-[11px] text-amber-500 animate-pulse";
+        // Re-apply focus mode classes
+        if (settings.focusModeEnabled) setTimeout(() => updateFocusMode(), 30);
+      },
+    });
+  });
+
   typewriterToggle?.addEventListener("click", () => {
     settings = { ...settings, typewriterModeEnabled: !settings.typewriterModeEnabled };
     saveEditorSettings(settings);
@@ -391,6 +423,10 @@ export function renderEditor(storyId: string): HTMLElement {
     store.updateStory(storyId, { title: finalTitle, content: localContent });
     saveIndEl.innerText = "Saved";
     saveIndEl.className = "font-mono text-[11px] text-nordic-accentLight dark:text-nordic-accentDark";
+    // History snapshot on autosave pause
+    try {
+      maybeCreateSnapshot(storyId, localContent, finalTitle);
+    } catch {}
   };
 
   const scheduleSave = () => {
@@ -481,6 +517,10 @@ export function renderEditor(storyId: string): HTMLElement {
     // Trigger focus mode update and typewriter centering
     if (settings.focusModeEnabled) updateFocusMode();
     if (settings.typewriterModeEnabled) centerActiveLine();
+    // History: check for significant change every input (throttled inside)
+    try {
+      maybeCreateSnapshot(storyId, localContent, localTitle);
+    } catch {}
   });
 
   // Also handle keyup for navigation keys (arrow, enter) that don't trigger input
