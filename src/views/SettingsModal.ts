@@ -224,7 +224,7 @@ export function openSettingsModal() {
       store.toast('Syncing with Sanctuary...', 'info');
       const result = await syncWithCloud();
       if (result.success) {
-        const msg = result.message || `Sync complete! Merged ${result.totalStories ?? store.stories.length} total stories.`;
+        const msg = result.message || `Sync complete! ${result.totalStories ?? store.stories.length} stories up-to-date across all devices.`;
         store.toast(msg, 'ok');
         logger.info('SYNC', `Link & Sync success: ${msg}`);
         // Trigger UI re-render via store notification already happens in syncWithCloud merge
@@ -265,7 +265,7 @@ export function openSettingsModal() {
     try {
       const result = await syncWithCloud();
       if (result.success) {
-        const msg = result.message || `Sync complete! Merged ${result.totalStories ?? store.stories.length} total stories.`;
+        const msg = result.message || `Sync complete! ${result.totalStories ?? store.stories.length} stories up-to-date across all devices.`;
         store.toast(msg, 'ok');
         logger.info('SYNC', `Manual Sync Now success: ${msg}`);
       } else {
