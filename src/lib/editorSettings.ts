@@ -1,6 +1,8 @@
 export interface EditorSettings {
   focusModeEnabled: boolean;
   typewriterModeEnabled: boolean;
+  openLastStoryOnLaunch: boolean;
+  lastActiveStoryId?: string | null;
 }
 
 const KEY = 'cng_writer_editor_settings';
@@ -8,6 +10,8 @@ const KEY = 'cng_writer_editor_settings';
 const defaults: EditorSettings = {
   focusModeEnabled: false,
   typewriterModeEnabled: false,
+  openLastStoryOnLaunch: false,
+  lastActiveStoryId: null,
 };
 
 export function loadEditorSettings(): EditorSettings {
@@ -18,6 +22,8 @@ export function loadEditorSettings(): EditorSettings {
     return {
       focusModeEnabled: Boolean(parsed.focusModeEnabled),
       typewriterModeEnabled: Boolean(parsed.typewriterModeEnabled),
+      openLastStoryOnLaunch: Boolean(parsed.openLastStoryOnLaunch),
+      lastActiveStoryId: typeof parsed.lastActiveStoryId === "string" ? parsed.lastActiveStoryId : null,
     };
   } catch {
     return { ...defaults };

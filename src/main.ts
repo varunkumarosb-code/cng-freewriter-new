@@ -8,6 +8,7 @@ import { logger } from './utils/logger';
 import { autoRecoverIfEmpty } from './lib/deviceBackup';
 import { syncWithCloud } from './lib/cloudSync';
 import { renderToasts } from './views/Toast';
+import { loadEditorSettings } from './lib/editorSettings';
 
 // PWA: Register lightweight Service Worker (network-first, Cloudflare-friendly)
 if ('serviceWorker' in navigator) {
@@ -142,6 +143,21 @@ window.addEventListener('hashchange', () => {
 // Initial boot — attempt device auto-recover then render
 logger.info('APP', 'CnG Writer initialized');
 void autoRecoverIfEmpty().finally(() => {
+  // Open Last Story on Launch preference
+  try {
+    const prefs = loadEditorSettings();
+    if (prefs.openLastStoryOnLaunch && prefs.lastActiveStoryId) {
+      const hash = window.location.hash || '';
+      // Don't override admin panel route
+      if (hash !== '#/adminpanel') {
+        const target = store.stories.find((s) => s.id === prefs.lastActiveStoryId && !(s.isDeleted === true || !!s.deletedAt));
+        if (target) {
+          store.activeStoryId = target.id;
+          logger.info('APP', `Open last story on launch: ${target.id}`);
+        }
+      }
+    }
+  } catch {}
   renderApp(true);
   // Initial cloud sync on boot
   void syncWithCloud().catch(() => {});
