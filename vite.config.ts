@@ -1,4 +1,15 @@
 import { defineConfig } from "vite";
+import { readFileSync } from "fs";
+
+let pkgVersion = "2.0.0";
+try {
+  const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
+  if (pkg.version) pkgVersion = pkg.version;
+} catch {}
+// Fallback to npm_package_version env if available (e.g., CI)
+if (process.env.npm_package_version) {
+  pkgVersion = process.env.npm_package_version;
+}
 
 const now = new Date();
 const istTime = now.toLocaleString('en-IN', { 
@@ -11,7 +22,8 @@ export default defineConfig({
   base: "./",
   define: {
     '__CF_ADMIN_SECRET__': JSON.stringify(process.env.WRITER_PANEL_LOGIN || process.env.VITE_WRITER_PANEL_LOGIN || ''),
-    '__BUILD_VERSION__': JSON.stringify(process.env.npm_package_version || '2.0.0'),
+    '__BUILD_VERSION__': JSON.stringify(pkgVersion),
+    '__APP_VERSION__': JSON.stringify(pkgVersion),
     '__BUILD_TIME__': JSON.stringify(istTime)
   },
   build: {

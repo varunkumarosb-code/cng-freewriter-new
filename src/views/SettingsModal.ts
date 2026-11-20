@@ -155,7 +155,7 @@ export function openSettingsModal() {
 
       <!-- Build Info Footer -->
       <div class="pt-3 border-t border-nordic-borderLight dark:border-nordic-borderDark flex items-center justify-between text-[11px] font-mono text-nordic-mutedLight dark:text-nordic-mutedDark">
-        <span>Build: <strong class="text-nordic-textLight dark:text-nordic-textDark">v${typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : '2.0.0'}</strong></span>
+        <span>Build: <strong class="text-nordic-textLight dark:text-nordic-textDark">v${typeof __APP_VERSION__ !== 'undefined' && __APP_VERSION__ ? __APP_VERSION__ : (typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : '2.0.0')}</strong></span>
         <span>${typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ' (IST)'}</span>
       </div>
 
@@ -221,15 +221,18 @@ export function openSettingsModal() {
     try {
       setSyncKey(val);
       logger.action('SYNC', `Link & Sync: saved key ${val}`);
-      store.toast('Syncing with Cloudflare Sanctuary...', 'info');
+      store.toast('Syncing with Sanctuary...', 'info');
       const result = await syncWithCloud();
       if (result.success) {
-        store.toast('Sync complete', 'ok');
-        logger.info('SYNC', `Link & Sync success: ${result.message}`);
-        // Optionally reload to reflect merged stories
+        const msg = result.message || `Sync complete! Merged ${result.totalStories ?? store.stories.length} total stories.`;
+        store.toast(msg, 'ok');
+        logger.info('SYNC', `Link & Sync success: ${msg}`);
+        // Trigger UI re-render via store notification already happens in syncWithCloud merge
         setTimeout(() => backdrop.remove(), 800);
       } else {
-        store.toast(result.message || 'Sync failed', 'error');
+        const errMsg = result.message || 'Sync failed';
+        store.toast(errMsg, 'error');
+        logger.warn('SYNC', `Link & Sync failed: ${errMsg}`);
       }
     } catch (err: any) {
       store.toast(err?.message || 'Invalid key format. Use CNG-XXXX-XXXX-XXXX', 'error');
@@ -257,14 +260,18 @@ export function openSettingsModal() {
     const original = btn.innerHTML;
     btn.innerHTML = 'Syncing...';
     btn.setAttribute('disabled', 'true');
-    store.toast('Syncing with Cloudflare Sanctuary...', 'info');
+    store.toast('Syncing with Sanctuary...', 'info');
     logger.action('SYNC', 'Manual Sync Now triggered');
     try {
       const result = await syncWithCloud();
       if (result.success) {
-        store.toast('Sync complete', 'ok');
+        const msg = result.message || `Sync complete! Merged ${result.totalStories ?? store.stories.length} total stories.`;
+        store.toast(msg, 'ok');
+        logger.info('SYNC', `Manual Sync Now success: ${msg}`);
       } else {
-        store.toast(result.message || 'Sync failed', 'error');
+        const errMsg = result.message || 'Sync failed';
+        store.toast(errMsg, 'error');
+        logger.warn('SYNC', `Sync Now failed: ${errMsg}`);
       }
     } catch (e: any) {
       store.toast(e?.message || 'Sync failed', 'error');
