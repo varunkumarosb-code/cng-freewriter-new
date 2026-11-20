@@ -1,8 +1,58 @@
 import { getSyncKey } from './syncKey';
 import { logger } from '../utils/logger';
+import { Capacitor } from '@capacitor/core';
 
 const LAST_SYNC_KEY = 'cng_last_sync_at';
-const SYNC_ENDPOINT = 'https://writer.tiafa.cc.cd/api/sync';
+const PRIMARY_ENDPOINT = 'https://writer.tiafa.cc.cd/api/sync';
+const FALLBACK_ENDPOINT = 'https://cng-freewriter-new.pages.dev/api/sync';
+
+// Capacitor-aware endpoint resolution: native must use absolute, web can use relative
+function getEndpoints(): string[] {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      return [PRIMARY_ENDPOINT, FALLBACK_ENDPOINT];
+    }
+  } catch {}
+  // Web: relative first (same origin), then absolute fallback
+  return ['/api/sync', PRIMARY_ENDPOINT];
+}
+
+async function fetchWithFallback(urlPathOrFull: string, init: RequestInit, endpoints: string[]): Promise<Response> {
+  let lastError: any = null;
+  for (const base of endpoints) {
+    // If urlPathOrFull starts with ?key= or is full, construct accordingly
+    // For GET: urlPathOrFull is `?key=...` query, base is endpoint
+    // For POST: base is endpoint, init.body contains sync_key
+    let url: string;
+    if (urlPathOrFull.startsWith('?') || urlPathOrFull.startsWith('&')) {
+      url = `${base}${urlPathOrFull}`;
+    } else if (urlPathOrFull.startsWith('http')) {
+      url = urlPathOrFull;
+    } else {
+      url = `${base}${urlPathOrFull}`;
+    }
+    try {
+      const res = await fetch(url, init);
+      // If we got a response (even error status), return it unless it's a network-level HTML fallback that indicates wrong origin for native
+      // For 503 D1 not bound, we still try next endpoint if we have one (maybe fallback bound)
+      if (res.status === 503 && endpoints.indexOf(base) < endpoints.length - 1) {
+        let txt = '';
+        try { txt = await res.clone().text(); } catch {}
+        logger.warn('SYNC', `Endpoint ${base} returned 503, trying fallback: ${txt.slice(0, 120)}`);
+        // don't return yet, try next
+        lastError = new Error(`503 on ${base}`);
+        continue;
+      }
+      return res;
+    } catch (e: any) {
+      logger.warn('SYNC', `Fetch failed for ${base}: ${e?.message}`);
+      lastError = e;
+      // try next endpoint
+      continue;
+    }
+  }
+  throw lastError || new Error('All sync endpoints failed');
+}
 
 function getLocalUpdatedAt(): number {
   try {
@@ -56,37 +106,43 @@ function parsePayloadString(payload: unknown): { stories: any[]; categories: any
   return null;
 }
 
-export async function syncWithCloud(forcePush = false): Promise<{ success: boolean; message: string }> {
+// Central helper for explicit user feedback via toasts is handled by callers (SettingsModal),
+// but we also ensure syncWithCloud returns detailed status with count for toast rendering.
+export async function syncWithCloud(forcePush = false): Promise<{ success: boolean; message: string; totalStories?: number }> {
   const syncKey = getSyncKey();
-  if (!syncKey) return { success: false, message: 'No sync key' };
+  if (!syncKey) return { success: false, message: 'No sync key set — generate or paste a key first' };
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return { success: false, message: 'Offline' };
+    return { success: false, message: 'Offline — check internet connection' };
   }
 
+  const endpoints = getEndpoints();
+  logger.info('SYNC', `Using endpoints: ${endpoints.join(', ')} (native=${(() => { try { return Capacitor.isNativePlatform(); } catch { return false; } })()})`);
+
   try {
-    // Use absolute URL so native WebView (capacitor://localhost) can reach Cloudflare
+    // === GET phase with Capacitor-aware endpoint ===
     let getRes: Response;
     try {
-      getRes = await fetch(`${SYNC_ENDPOINT}?key=${encodeURIComponent(syncKey)}`, {
+      getRes = await fetchWithFallback(`?key=${encodeURIComponent(syncKey)}`, {
         method: 'GET',
         headers: { Accept: 'application/json' },
-      });
+      }, endpoints);
     } catch (e: any) {
-      // Fallback to relative for local dev if absolute fails
-      logger.warn('SYNC', `Absolute fetch failed, trying relative: ${e?.message}`);
-      getRes = await fetch(`/api/sync?key=${encodeURIComponent(syncKey)}`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
+      logger.error('SYNC', `All GET endpoints failed: ${e?.message}`, e);
+      // Special handling for native absolute fail
+      return { success: false, message: `Sync Error (Network): ${e?.message || 'All endpoints unreachable'} — check Cloudflare endpoints` };
     }
 
     if (getRes.status === 503) {
-      // Try to parse body safely, but don't crash on HTML
+      let bodyTxt = '';
+      try { bodyTxt = await getRes.text(); } catch {}
+      // Try to extract error json if present
+      let detail = 'Cloudflare D1 database binding check required';
       try {
-        await getRes.text();
+        const j = JSON.parse(bodyTxt);
+        detail = j.error || detail;
       } catch {}
-      logger.warn('SYNC', 'D1 not bound, offline mode');
-      return { success: false, message: 'D1 not bound (offline)' };
+      logger.warn('SYNC', `GET 503 D1 not bound: ${bodyTxt.slice(0, 300)}`);
+      return { success: false, message: `Sync Error (503): ${detail}` };
     }
 
     let remoteFound = false;
@@ -111,7 +167,7 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
         }
       } catch (e: any) {
         logger.error('SYNC', `GET JSON parse failed: ${e?.message}`);
-        if (!forcePush) return { success: false, message: `Invalid server response: ${e?.message}` };
+        if (!forcePush) return { success: false, message: `Sync Error (Parse): Invalid server response: ${e?.message} — check Cloudflare D1 binding` };
       }
       if (data && data.found && data.payload && typeof data.updated_at === 'number') {
         remoteFound = true;
@@ -124,14 +180,16 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
       // No remote yet — will push local
       remoteFound = false;
       try {
-        // Consume body to avoid leak, but ignore parse errors
         await getRes.text().catch(() => {});
       } catch {}
     } else if (!getRes.ok) {
       let bodyText = '';
       try { bodyText = await getRes.text(); } catch {}
+      // Try to parse JSON error for cleaner message
+      let parsedMsg = bodyText;
+      try { const j = JSON.parse(bodyText); parsedMsg = j.error || bodyText; } catch {}
       logger.warn('SYNC', `GET sync failed ${getRes.status} ${bodyText.slice(0, 200)}`);
-      if (!forcePush) return { success: false, message: `GET failed ${getRes.status}` };
+      if (!forcePush) return { success: false, message: `Sync Error (${getRes.status}): ${parsedMsg.slice(0, 150)}` };
     }
 
     const localAt = getLocalUpdatedAt();
@@ -139,7 +197,9 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
     // === Bidirectional Merge ===
     // If remote exists, always attempt to merge remote into local first
     // This prevents data loss when local timestamp is artificially newer (e.g., fresh seed)
+    // Soft-deleted fields (isDeleted, deletedAt) are preserved as-is in payload — no stripping.
     let didMerge = false;
+    let mergedStoriesCount = 0;
     if (remoteFound && remotePayload) {
       const parsed = parsePayloadString(remotePayload);
       if (parsed) {
@@ -166,27 +226,26 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
               if (merged) {
                 const afterCount = store.stories.length;
                 const added = afterCount - beforeCount;
+                mergedStoriesCount = afterCount;
                 // Update local timestamp to remote's timestamp to prevent immediate re-push loop
                 if (remoteAt !== null) setLocalUpdatedAt(remoteAt);
                 else setLocalUpdatedAt(Date.now());
 
                 if (added > 0 || hasNewRemote) {
-                  logger.info('SYNC', `Synced ${remoteStories.length} stories from Sanctuary Cloud (added ${added})`);
-                  store.toast('Library synced from Sanctuary Cloud', 'ok');
+                  logger.info('SYNC', `Synced ${remoteStories.length} stories from Sanctuary Cloud (added ${added}, total ${afterCount})`);
+                  store.toast(`Library synced from Sanctuary Cloud: ${afterCount} total stories`, 'ok');
                 } else {
-                  logger.info('SYNC', `Merged ${remoteStories.length} stories from Sanctuary Cloud`);
+                  logger.info('SYNC', `Merged ${remoteStories.length} stories from Sanctuary Cloud (total ${afterCount})`);
                 }
                 didMerge = true;
                 // If we merged, we should push the merged result back only if local had extra stories that remote didn't have
-                // But to keep both devices in sync, push the union after merge if local had unique stories
                 const localHadExtra = beforeCount > 0 && store.stories.some((s) => !remoteStories.find((rs: any) => rs.id === s.id));
                 if (localHadExtra) {
-                  // Local had extra — need to push merged union
                   logger.info('SYNC', 'Local had extra stories, will push merged union to cloud');
                 } else if (!localHadExtra) {
                   // Remote was superset — no need to push immediately unless forcePush
                   if (!forcePush) {
-                    return { success: true, message: 'Library synced from Sanctuary Cloud' };
+                    return { success: true, message: `Sync complete! Merged ${afterCount} total stories.`, totalStories: afterCount };
                   }
                 }
               }
@@ -194,7 +253,7 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
           }
         } catch (e: any) {
           logger.error('SYNC', 'Failed to merge remote payload', e);
-          return { success: false, message: `Merge failed: ${e?.message}` };
+          return { success: false, message: `Sync Error (Merge): ${e?.message}` };
         }
       } else {
         logger.warn('SYNC', 'Remote payload parse returned null, skipping merge');
@@ -221,7 +280,8 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
               // Local has extra -> push
               // fall through to push logic
             } else {
-              return { success: true, message: 'Already in sync' };
+              const total = store.stories.length;
+              return { success: true, message: `Sync complete! Merged ${total} total stories.`, totalStories: total };
             }
           }
         }
@@ -236,56 +296,60 @@ export async function syncWithCloud(forcePush = false): Promise<{ success: boole
         const payloadStr = JSON.stringify(payloadObj);
         const now = Date.now();
 
-        // Use absolute endpoint for native compatibility
         let postRes: Response;
         try {
-          postRes = await fetch(SYNC_ENDPOINT, {
+          postRes = await fetchWithFallback('', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sync_key: syncKey, payload: payloadStr, updated_at: now }),
-          });
-        } catch {
-          postRes = await fetch('/api/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sync_key: syncKey, payload: payloadStr, updated_at: now }),
-          });
+          }, endpoints);
+        } catch (e: any) {
+          logger.error('SYNC', `All POST endpoints failed: ${e?.message}`, e);
+          return { success: false, message: `Sync Error (Network): POST failed — ${e?.message || 'All endpoints unreachable'}` };
         }
 
         if (postRes.ok) {
           setLocalUpdatedAt(now);
           logger.info('SYNC', `Pushed ${payloadObj.stories.length} stories to Sanctuary Cloud`);
-          // Avoid duplicate toast if we already toasted merge
-          if (!didMerge) {
-            // For Sync Now, we already show Sync complete via caller; don't double-toast
+          // Return success with count even if we already did merge
+          const total = payloadObj.stories.length;
+          if (didMerge) {
+            return { success: true, message: `Sync complete! Merged ${total} total stories.`, totalStories: total };
           }
-          return { success: true, message: 'Pushed to cloud' };
+          // For fresh push (first device), still success
+          return { success: true, message: `Sync complete! Merged ${total} total stories.`, totalStories: total };
         } else {
           let txt = '';
           try { txt = await postRes.text(); } catch {}
           // Try to parse JSON error for cleaner message
+          let parsed = txt;
           try {
             const j = JSON.parse(txt);
-            txt = j.error || txt;
+            parsed = j.error || txt;
           } catch {}
           logger.warn('SYNC', `POST sync failed ${postRes.status} ${txt.slice(0, 300)}`);
-          return { success: false, message: `POST failed ${postRes.status}: ${txt.slice(0, 100)}` };
+          return { success: false, message: `Sync Error (${postRes.status}): ${parsed.slice(0, 150)}` };
         }
       } catch (e: any) {
         logger.error('SYNC', 'Push failed', e);
-        return { success: false, message: e?.message || 'Push error' };
+        return { success: false, message: `Sync Error (Push): ${e?.message || 'Push error'}` };
       }
     }
 
-    return { success: true, message: 'Already in sync' };
+    try {
+      const { store } = await import('../state/store');
+      return { success: true, message: `Sync complete! Merged ${store.stories.length} total stories.`, totalStories: store.stories.length };
+    } catch {
+      return { success: true, message: 'Already in sync' };
+    }
   } catch (e: any) {
     // Top-level unexpected token etc.
     const msg = e?.message || String(e);
     logger.error('SYNC', `syncWithCloud error: ${msg}`, e);
     // Provide user-friendly message for JSON parse errors
     if (msg.includes('Unexpected token')) {
-      return { success: false, message: `Sync parse error: ${msg.slice(0, 80)} — check Cloudflare D1 binding` };
+      return { success: false, message: `Sync Error (Parse): ${msg.slice(0, 80)} — check Cloudflare D1 binding` };
     }
-    return { success: false, message: msg || 'Sync error' };
+    return { success: false, message: `Sync Error: ${msg || 'Sync error'}` };
   }
 }

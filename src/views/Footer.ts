@@ -1,5 +1,6 @@
 export function renderFooter(): string {
-  const version = typeof __BUILD_VERSION__ !== 'undefined' && __BUILD_VERSION__ ? `v${__BUILD_VERSION__}` : 'v2.0.0';
+  const versionRaw = (typeof __APP_VERSION__ !== 'undefined' && __APP_VERSION__) ? __APP_VERSION__ : (typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : '2.0.0');
+  const version = `v${versionRaw}`;
   const buildTime = typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__ ? __BUILD_TIME__ : new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ' (IST)';
   return `
     <footer class="mt-14 border-t border-nordic-borderLight dark:border-nordic-borderDark pt-6 pb-4 text-[12px] text-nordic-mutedLight dark:text-nordic-mutedDark">
